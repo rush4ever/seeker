@@ -1,7 +1,38 @@
+import { useApp } from "./context/AppContext";
+import AppShell from "./components/layout/AppShell";
+import HomePage from "./pages/student/HomePage";
+import QuestionsPage from "./pages/student/QuestionsPage";
+import GraphPage from "./pages/student/GraphPage";
+import StatsPage from "./pages/student/StatsPage";
+import DashboardPage from "./pages/parent/DashboardPage";
+import SettingsPage from "./pages/parent/SettingsPage";
+
+function StudentRouter({ page }: { page: string }) {
+  switch (page) {
+    case "home": return <HomePage />;
+    case "questions": return <QuestionsPage />;
+    case "graph": return <GraphPage />;
+    case "stats": return <StatsPage />;
+    default: return <HomePage />;
+  }
+}
+
+function ParentRouter({ page }: { page: string }) {
+  switch (page) {
+    case "dashboard": return <DashboardPage />;
+    case "settings": return <SettingsPage />;
+    default: return <DashboardPage />;
+  }
+}
+
 export default function App() {
+  const { roleMode, activePage } = useApp();
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <h1 className="text-2xl font-bold text-gray-800">错题分析系统</h1>
-    </div>
+    <AppShell>
+      {roleMode === "student"
+        ? <StudentRouter page={activePage} />
+        : <ParentRouter page={activePage} />}
+    </AppShell>
   );
 }
