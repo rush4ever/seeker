@@ -1,5 +1,7 @@
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+pub mod seed_knowledge;
+
 pub fn get_migrations() -> Vec<Migration> {
     vec![Migration {
         version: 1,

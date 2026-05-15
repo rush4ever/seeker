@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { useApp } from "./context/AppContext";
+import { seedKnowledgeTree } from "./lib/knowledgeTree";
 import AppShell from "./components/layout/AppShell";
 import HomePage from "./pages/student/HomePage";
 import QuestionsPage from "./pages/student/QuestionsPage";
@@ -27,6 +29,10 @@ function ParentRouter({ page }: { page: string }) {
 
 export default function App() {
   const { roleMode, activePage } = useApp();
+
+  useEffect(() => {
+    seedKnowledgeTree().catch(console.error);
+  }, []);
 
   return (
     <AppShell>

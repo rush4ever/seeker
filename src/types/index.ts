@@ -64,3 +64,13 @@ export interface KnowledgeNode {
   is_preset: number;
   description: string | null;
 }
+
+export interface KnowledgeNodeWithStats extends KnowledgeNode {
+  question_count: number;
+  avg_mastery: number | null;
+}
+
+export interface KnowledgeTreeNode {
+  node: KnowledgeNodeWithStats;
+  children: KnowledgeTreeNode[];
+}
