@@ -82,3 +82,33 @@ export interface SimilarQuestion {
 }
 
 export type PracticeMode = "questions_only" | "full_analysis";
+
+export interface GeneratedQuestion {
+  content: string;
+  answer: string;
+  explanation: string;
+  questionType: QuestionType;
+}
+
+export interface GradingResult {
+  isCorrect: 0 | 1 | 2 | 3; // 0=错, 1=对, 2=部分对, 3=待自评
+  explanation: string;
+  scoringPoints?: string[];
+}
+
+export interface OCRResult {
+  text: string;
+  confidence?: number;
+}
+
+export type GradingStatus = "pending" | "uploaded" | "ocr_done" | "graded" | "confirmed";
+
+export interface GradingItem {
+  index: number;
+  question: GeneratedQuestion;
+  photoPath?: string;
+  ocrResult?: OCRResult;
+  aiResult?: GradingResult;
+  finalResult?: GradingResult;
+  status: GradingStatus;
+}
