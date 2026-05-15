@@ -9,6 +9,7 @@ import {
 import { parseWordDocument } from "../../lib/wordParser";
 import { getDb } from "../../lib/db";
 import { useSimilarQuestions } from "../../hooks/useSimilarQuestions";
+import { updateMastery, checkGraduationStatus } from "../../lib/mastery";
 import type { Question, Subject, SimilarQuestion } from "../../types";
 import {
   FileUp,
@@ -135,6 +136,31 @@ export default function QuestionsPage() {
       await refresh();
     },
     [generateSimilar, refresh]
+  );
+
+  const handleMarkResult = useCallback(
+    async (question: Question, isCorrect: boolean) => {
+      const newMastery = updateMastery(question.mastery_score, isCorrect);
+      const newStatus = checkGraduationStatus(newMastery);
+
+      const db = await getDb();
+      await db.execute(
+        `UPDATE questions SET mastery_score = $1, status = $2, updated_at = datetime('now') WHERE id = $3`,
+        [newMastery, newStatus, question.id]
+      );
+
+      // Record to mastery_history
+      await db.execute(
+        `INSERT INTO mastery_history (student_id, knowledge_id, score, recorded_at)
+         SELECT $1, qk.knowledge_id, $2, datetime('now')
+         FROM question_knowledge qk
+         WHERE qk.question_id = $3`,
+        [question.student_id, newMastery, question.id]
+      );
+
+      await refresh();
+    },
+    [refresh]
   );
 
   const handleBatchAnalyze = useCallback(async () => {
@@ -341,6 +367,7 @@ export default function QuestionsPage() {
               onDelete={remove}
               onAnalyze={handleAnalyze}
               onGenerateSimilar={handleGenerateSimilar}
+              onMarkResult={handleMarkResult}
               isAnalyzing={analyzingIds.has(q.id)}
               isGeneratingSimilar={generatingForId === q.id}
               ollamaAvailable={ollamaAvailable === true}
@@ -357,6 +384,7 @@ function QuestionCard({
   onDelete,
   onAnalyze,
   onGenerateSimilar,
+  onMarkResult,
   isAnalyzing,
   isGeneratingSimilar,
   ollamaAvailable,
@@ -365,6 +393,7 @@ function QuestionCard({
   onDelete: (id: number) => void;
   onAnalyze: (q: Question) => void;
   onGenerateSimilar: (q: Question) => void;
+  onMarkResult: (q: Question, isCorrect: boolean) => void;
   isAnalyzing: boolean;
   isGeneratingSimilar: boolean;
   ollamaAvailable: boolean;
@@ -443,17 +472,40 @@ function QuestionCard({
                 </span>
               </>
             )}
+            {question.status === "graduated" && (
+              <span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 font-medium">
+                已毕业
+              </span>
+            )}
           </div>
 
           {/* Content */}
           <p className="text-gray-800 line-clamp-2">{question.content}</p>
 
-          {/* Answer */}
+          {/* Answer & Mastery */}
           {question.correct_answer && (
             <p className="text-sm text-green-600 mt-2">
               答案: {question.correct_answer}
             </p>
           )}
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs text-gray-500">掌握度</span>
+            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  question.mastery_score < 30
+                    ? "bg-red-400"
+                    : question.mastery_score < 70
+                      ? "bg-amber-400"
+                      : "bg-green-400"
+                }`}
+                style={{ width: `${question.mastery_score}%` }}
+              />
+            </div>
+            <span className="text-xs font-medium text-gray-600">
+              {Math.round(question.mastery_score)}%
+            </span>
+          </div>
 
           {/* Knowledge point tags */}
           <KnowledgeTags questionId={question.id} />
@@ -496,6 +548,24 @@ function QuestionCard({
                 <Sparkles size={16} />
               )}
             </button>
+          )}
+          {isAnalyzed && question.status !== "graduated" && (
+            <>
+              <button
+                onClick={() => onMarkResult(question, true)}
+                className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                title="做对了"
+              >
+                <CheckCircle2 size={16} />
+              </button>
+              <button
+                onClick={() => onMarkResult(question, false)}
+                className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                title="做错了"
+              >
+                <AlertCircle size={16} />
+              </button>
+            </>
           )}
           <button
             onClick={() => onDelete(question.id)}
