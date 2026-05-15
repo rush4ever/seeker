@@ -1,11 +1,12 @@
 import { useApp } from "../../context/AppContext";
-import { Home, BookOpen, Brain, BarChart3, Printer } from "lucide-react";
+import { Home, BookOpen, Brain, BarChart3, Printer, Camera } from "lucide-react";
 
 const navItems = [
   { id: "home", label: "首页", icon: Home },
   { id: "questions", label: "错题本", icon: BookOpen },
   { id: "graph", label: "知识图谱", icon: Brain },
   { id: "practice", label: "练习卷", icon: Printer },
+  { id: "grading", label: "批改", icon: Camera },
   { id: "stats", label: "统计", icon: BarChart3 },
 ];
 

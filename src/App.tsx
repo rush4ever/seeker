@@ -7,6 +7,7 @@ import QuestionsPage from "./pages/student/QuestionsPage";
 import GraphPage from "./pages/student/GraphPage";
 import PracticePage from "./pages/student/PracticePage";
 import StatsPage from "./pages/student/StatsPage";
+import GradingPage from "./pages/student/GradingPage";
 import DashboardPage from "./pages/parent/DashboardPage";
 import SettingsPage from "./pages/parent/SettingsPage";
 
@@ -17,6 +18,7 @@ function StudentRouter({ page }: { page: string }) {
     case "graph": return <GraphPage />;
     case "practice": return <PracticePage />;
     case "stats": return <StatsPage />;
+    case "grading": return <GradingPage />;
     default: return <HomePage />;
   }
 }
