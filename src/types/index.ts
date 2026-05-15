@@ -74,3 +74,9 @@ export interface KnowledgeTreeNode {
   node: KnowledgeNodeWithStats;
   children: KnowledgeTreeNode[];
 }
+
+export interface SimilarQuestion {
+  content: string;
+  answer: string;
+  explanation: string;
+}

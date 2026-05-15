@@ -3,10 +3,18 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 pub mod seed_knowledge;
 
 pub fn get_migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        description: "create_initial_tables",
-        sql: include_str!("./schema.sql"),
-        kind: MigrationKind::Up,
-    }]
+    vec![
+        Migration {
+            version: 1,
+            description: "create_initial_tables",
+            sql: include_str!("./schema.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "add_similar_questions",
+            sql: include_str!("./migrations/v2_add_similar_questions.sql"),
+            kind: MigrationKind::Up,
+        },
+    ]
 }

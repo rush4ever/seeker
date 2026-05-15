@@ -8,7 +8,8 @@ import {
 } from "../../hooks/useQuestionAnalysis";
 import { parseWordDocument } from "../../lib/wordParser";
 import { getDb } from "../../lib/db";
-import type { Question, Subject } from "../../types";
+import { useSimilarQuestions } from "../../hooks/useSimilarQuestions";
+import type { Question, Subject, SimilarQuestion } from "../../types";
 import {
   FileUp,
   Filter,
@@ -18,6 +19,9 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Wand2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 function subjectLabel(s: Subject): string {
@@ -48,6 +52,12 @@ export default function QuestionsPage() {
     checkOllama,
     analyzeSingle,
   } = useQuestionAnalysis();
+
+  const {
+    generatingForId,
+    error: similarError,
+    generate: generateSimilar,
+  } = useSimilarQuestions();
 
   // Check Ollama on mount
   useEffect(() => {
@@ -117,6 +127,14 @@ export default function QuestionsPage() {
       }
     },
     [analyzeSingle, refresh]
+  );
+
+  const handleGenerateSimilar = useCallback(
+    async (question: Question) => {
+      await generateSimilar(question, 2);
+      await refresh();
+    },
+    [generateSimilar, refresh]
   );
 
   const handleBatchAnalyze = useCallback(async () => {
@@ -297,11 +315,11 @@ export default function QuestionsPage() {
         </div>
       </div>
 
-      {/* Analysis error */}
-      {analysisError && (
+      {/* Errors */}
+      {(analysisError || similarError) && (
         <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
           <AlertCircle size={16} />
-          {analysisError}
+          {analysisError || similarError}
         </div>
       )}
 
@@ -322,7 +340,9 @@ export default function QuestionsPage() {
               question={q}
               onDelete={remove}
               onAnalyze={handleAnalyze}
+              onGenerateSimilar={handleGenerateSimilar}
               isAnalyzing={analyzingIds.has(q.id)}
+              isGeneratingSimilar={generatingForId === q.id}
               ollamaAvailable={ollamaAvailable === true}
             />
           ))}
@@ -336,16 +356,51 @@ function QuestionCard({
   question,
   onDelete,
   onAnalyze,
+  onGenerateSimilar,
   isAnalyzing,
+  isGeneratingSimilar,
   ollamaAvailable,
 }: {
   question: Question;
   onDelete: (id: number) => void;
   onAnalyze: (q: Question) => void;
+  onGenerateSimilar: (q: Question) => void;
   isAnalyzing: boolean;
+  isGeneratingSimilar: boolean;
   ollamaAvailable: boolean;
 }) {
   const isAnalyzed = !!question.error_cause && !!question.difficulty;
+  const [showSimilar, setShowSimilar] = useState(false);
+  const [similarQuestions, setSimilarQuestions] = useState<SimilarQuestion[]>([]);
+  const [similarLoaded, setSimilarLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!showSimilar || similarLoaded) return;
+    getDb()
+      .then((db) =>
+        db.select<{ similar_questions: string | null }[]>(
+          `SELECT similar_questions FROM questions WHERE id = $1`,
+          [question.id]
+        )
+      )
+      .then((rows) => {
+        if (rows[0]?.similar_questions) {
+          try {
+            setSimilarQuestions(JSON.parse(rows[0].similar_questions));
+          } catch {
+            setSimilarQuestions([]);
+          }
+        }
+        setSimilarLoaded(true);
+      })
+      .catch(() => setSimilarLoaded(true));
+  }, [showSimilar, similarLoaded, question.id]);
+
+  const handleGenerate = useCallback(async () => {
+    await onGenerateSimilar(question);
+    setSimilarLoaded(false);
+    setShowSimilar(true);
+  }, [onGenerateSimilar, question]);
 
   return (
     <div className="card hover:shadow-md transition-shadow">
@@ -402,6 +457,28 @@ function QuestionCard({
 
           {/* Knowledge point tags */}
           <KnowledgeTags questionId={question.id} />
+
+          {/* Similar questions toggle */}
+          {isAnalyzed && (
+            <button
+              onClick={() => setShowSimilar((s) => !s)}
+              className="flex items-center gap-1 mt-3 text-sm text-primary-600 hover:text-primary-700 transition-colors"
+            >
+              {showSimilar ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              相似题
+            </button>
+          )}
+
+          {/* Similar questions panel */}
+          {showSimilar && isAnalyzed && (
+            <SimilarQuestionsPanel
+              questionId={question.id}
+              similarQuestions={similarQuestions}
+              isGenerating={isGeneratingSimilar}
+              onGenerate={handleGenerate}
+              ollamaAvailable={ollamaAvailable}
+            />
+          )}
         </div>
 
         {/* Actions */}
@@ -429,6 +506,67 @@ function QuestionCard({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SimilarQuestionsPanel({
+  questionId,
+  similarQuestions,
+  isGenerating,
+  onGenerate,
+  ollamaAvailable,
+}: {
+  questionId: number;
+  similarQuestions: SimilarQuestion[];
+  isGenerating: boolean;
+  onGenerate: () => void;
+  ollamaAvailable: boolean;
+}) {
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-gray-700">相似练习题</span>
+        <button
+          onClick={onGenerate}
+          disabled={isGenerating || !ollamaAvailable}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 transition-colors disabled:opacity-40"
+        >
+          {isGenerating ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Wand2 size={12} />
+          )}
+          {isGenerating ? "生成中..." : "生成相似题"}
+        </button>
+      </div>
+
+      {similarQuestions.length === 0 ? (
+        <p className="text-sm text-gray-400 py-2">暂无相似题，点击生成</p>
+      ) : (
+        <div className="space-y-3">
+          {similarQuestions.map((sq, idx) => (
+            <div
+              key={`${questionId}-${idx}`}
+              className="bg-gray-50 rounded-lg p-3 text-sm"
+            >
+              <p className="text-gray-800 font-medium mb-1">
+                {idx + 1}. {sq.content}
+              </p>
+              {sq.answer && (
+                <p className="text-green-600 text-xs mb-1">
+                  答案: {sq.answer}
+                </p>
+              )}
+              {sq.explanation && (
+                <p className="text-gray-500 text-xs">
+                  解析: {sq.explanation}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
