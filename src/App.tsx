@@ -5,6 +5,7 @@ import AppShell from "./components/layout/AppShell";
 import HomePage from "./pages/student/HomePage";
 import QuestionsPage from "./pages/student/QuestionsPage";
 import GraphPage from "./pages/student/GraphPage";
+import PracticePage from "./pages/student/PracticePage";
 import StatsPage from "./pages/student/StatsPage";
 import DashboardPage from "./pages/parent/DashboardPage";
 import SettingsPage from "./pages/parent/SettingsPage";
@@ -14,6 +15,7 @@ function StudentRouter({ page }: { page: string }) {
     case "home": return <HomePage />;
     case "questions": return <QuestionsPage />;
     case "graph": return <GraphPage />;
+    case "practice": return <PracticePage />;
     case "stats": return <StatsPage />;
     default: return <HomePage />;
   }

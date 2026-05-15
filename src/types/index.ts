@@ -80,3 +80,5 @@ export interface SimilarQuestion {
   answer: string;
   explanation: string;
 }
+
+export type PracticeMode = "questions_only" | "full_analysis";
