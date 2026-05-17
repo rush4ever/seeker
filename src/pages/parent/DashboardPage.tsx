@@ -20,6 +20,21 @@ import {
   GraduationCap,
   Loader2,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import {
+  buildMasteryTrendQuery,
+  formatMasteryTrend,
+  type WeeklyMasteryPoint,
+} from "../../lib/masteryTrend";
 
 export default function DashboardPage() {
   const { currentStudent } = useApp();
@@ -30,6 +45,7 @@ export default function DashboardPage() {
   const [topWeakPoints, setTopWeakPoints] = useState<WeakPoint[]>([]);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [graduatedQuestions, setGraduatedQuestions] = useState(0);
+  const [trendData, setTrendData] = useState<WeeklyMasteryPoint[]>([]);
 
   useEffect(() => {
     if (!currentStudent) return;
@@ -73,6 +89,14 @@ export default function DashboardPage() {
       );
       setTotalQuestions(totalRows[0]?.total ?? 0);
       setGraduatedQuestions(totalRows[0]?.graduated ?? 0);
+
+      // Mastery trend
+      const trendQuery = buildMasteryTrendQuery(studentId);
+      const trendRows = await db.select<{ week: string; subject: string; avg_score: number }[]>(
+        trendQuery.sql,
+        trendQuery.params
+      );
+      setTrendData(formatMasteryTrend(trendRows));
 
       setLoading(false);
     };
@@ -156,12 +180,69 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Mastery trend placeholder */}
+      {/* Mastery trend chart */}
       <div className="card">
         <h3 className="text-lg font-medium text-gray-800 mb-3">掌握度趋势</h3>
-        <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
-          <span>趋势图表将在后续版本展示</span>
-        </div>
+        {trendData.length === 0 ? (
+          <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
+            <span>暂无历史数据，完成练习后将显示趋势</span>
+          </div>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="weekLabel"
+                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                  axisLine={{ stroke: '#d1d5db' }}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                  axisLine={{ stroke: '#d1d5db' }}
+                  label={{ value: '掌握度 %', angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#6b7280' } }}
+                />
+                <Tooltip
+                  formatter={(value: number) => [`${value}%`, '']}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Line
+                  type="monotone"
+                  dataKey="overall"
+                  name="综合"
+                  stroke="#2563eb"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: '#2563eb' }}
+                  activeDot={{ r: 5 }}
+                />
+                {trendData.some((d) => d.math !== undefined) && (
+                  <Line
+                    type="monotone"
+                    dataKey="math"
+                    name="数学"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: '#3b82f6' }}
+                    strokeDasharray="5 5"
+                  />
+                )}
+                {trendData.some((d) => d.physics !== undefined) && (
+                  <Line
+                    type="monotone"
+                    dataKey="physics"
+                    name="物理"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: '#22c55e' }}
+                    strokeDasharray="5 5"
+                  />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Current weak points */}
