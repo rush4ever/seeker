@@ -11,9 +11,14 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
+printpdf = "0.7"
+docx-rs = "0.4"
+chrono = "0.4"
+fontdb = "0.22"
 
 [lib]
 name = "seeker_lib"
