@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useApp } from "../../context/AppContext";
 import { getDb } from "../../lib/db";
-import { buildPracticeSheet, formatForPrint } from "../../lib/practiceSheet";
 import { getWeakestKnowledgePoints, type KnowledgeStat } from "../../lib/scheduler";
+import { buildQuickPracticeTitle, formatWeakPointNames } from "../../lib/quickPractice";
 import type { Question } from "../../types";
-import { Target, BookOpen, Brain, ArrowRight, TrendingUp } from "lucide-react";
+import ExportButtonGroup from "../../components/export/ExportButtonGroup";
+import { Target, BookOpen, Brain, ArrowRight, TrendingUp, Dumbbell, Loader2 } from "lucide-react";
 
 export default function HomePage() {
   const { currentStudent, setActivePage } = useApp();
@@ -12,6 +13,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [analyzedCount, setAnalyzedCount] = useState(0);
+  const [practiceQuestions, setPracticeQuestions] = useState<Question[]>([]);
+  const [practiceLoading, setPracticeLoading] = useState(false);
 
   useEffect(() => {
     if (!currentStudent) return;
@@ -71,41 +74,25 @@ export default function HomePage() {
   const handleQuickPractice = useCallback(async () => {
     if (!currentStudent || weakPoints.length === 0) return;
 
-    const db = await getDb();
-
-    // Get questions for weak knowledge points
-    const weakIds = weakPoints.map((p) => p.knowledgeId);
-    const questions = await db.select<Question[]>(
-      `SELECT DISTINCT q.*
-       FROM questions q
-       JOIN question_knowledge qk ON q.id = qk.question_id
-       WHERE q.student_id = $1 AND qk.knowledge_id IN (${weakIds.map(() => "?").join(",")})
-       ORDER BY q.mastery_score ASC
-       LIMIT 6`,
-      [currentStudent.id, ...weakIds]
-    );
-
-    // Build knowledge map
-    const knowledgeMap = new Map<number, string[]>();
-    for (const q of questions) {
-      const rows = await db.select<{ name: string }[]>(
-        `SELECT kn.name
-         FROM question_knowledge qk
-         JOIN knowledge_nodes kn ON qk.knowledge_id = kn.id
-         WHERE qk.question_id = $1`,
-        [q.id]
+    setPracticeLoading(true);
+    try {
+      const db = await getDb();
+      const weakIds = weakPoints.map((p) => p.knowledgeId);
+      const questions = await db.select<Question[]>(
+        `SELECT DISTINCT q.*
+         FROM questions q
+         JOIN question_knowledge qk ON q.id = qk.question_id
+         WHERE q.student_id = $1 AND qk.knowledge_id IN (${weakIds.map(() => "?").join(",")})
+         ORDER BY q.mastery_score ASC
+         LIMIT 6`,
+        [currentStudent.id, ...weakIds]
       );
-      knowledgeMap.set(q.id, rows.map((r) => r.name));
-    }
-
-    const sheet = buildPracticeSheet(questions, "questions_only", knowledgeMap);
-    const html = formatForPrint(sheet, currentStudent.name);
-
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      setTimeout(() => printWindow.print(), 500);
+      setPracticeQuestions(questions);
+    } catch (err) {
+      console.error("Quick practice failed:", err);
+      alert("加载快练题目失败");
+    } finally {
+      setPracticeLoading(false);
     }
   }, [currentStudent, weakPoints]);
 
@@ -132,14 +119,43 @@ export default function HomePage() {
                 ? `基于你的错题分析，今天有 ${weakPoints.length} 个知识点需要巩固`
                 : "暂无薄弱知识点数据，先导入并分析一些错题吧"}
             </p>
-            <button
-              onClick={handleQuickPractice}
-              disabled={weakPoints.length === 0}
-              className="btn-primary text-lg px-8 py-4 disabled:opacity-50"
-            >
-              <Target size={20} className="inline mr-2" />
-              开始 5 分钟快练
-            </button>
+            {!practiceQuestions.length ? (
+              <button
+                onClick={handleQuickPractice}
+                disabled={weakPoints.length === 0 || practiceLoading}
+                className="btn-primary text-lg px-8 py-4 disabled:opacity-50"
+              >
+                {practiceLoading ? (
+                  <Loader2 size={20} className="inline mr-2 animate-spin" />
+                ) : (
+                  <Target size={20} className="inline mr-2" />
+                )}
+                {practiceLoading ? "加载中..." : "开始 5 分钟快练"}
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-primary-700">
+                  已加载 <span className="font-medium">{practiceQuestions.length}</span> 道关联错题
+                  {practiceQuestions.length > 0 && (
+                    <span className="text-xs ml-1">
+                      ({formatWeakPointNames(weakPoints)})
+                    </span>
+                  )}
+                </p>
+                <ExportButtonGroup
+                  questions={practiceQuestions}
+                  studentName={currentStudent?.name ?? ""}
+                  mode="questions_only"
+                  title={buildQuickPracticeTitle(weakPoints)}
+                />
+                <button
+                  onClick={() => setPracticeQuestions([])}
+                  className="text-sm text-primary-600 hover:text-primary-800 underline"
+                >
+                  重新选择
+                </button>
+              </div>
+            )}
           </div>
           <div className="text-right hidden sm:block">
             <div className="text-3xl font-bold text-primary-700">{totalQuestions}</div>
