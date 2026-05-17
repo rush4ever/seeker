@@ -17,6 +17,8 @@ import {
   Calendar,
   Target,
 } from "lucide-react";
+import { masteryBarClass } from "../../lib/mastery";
+import EmptyState from "../../components/common/EmptyState";
 
 export default function StatsPage() {
   const { currentStudent } = useApp();
@@ -74,12 +76,7 @@ export default function StatsPage() {
   const distribution = calculateSubjectDistribution(questions);
 
   if (!currentStudent) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400">
-        <BarChart3 size={48} className="mb-4" />
-        <p className="text-lg">请先在左侧选择一个学生</p>
-      </div>
-    );
+    return <EmptyState icon={BarChart3} message="请先在左侧选择一个学生" />;
   }
 
   return (
@@ -147,13 +144,7 @@ export default function StatsPage() {
                     </div>
                     <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all ${
-                          d.avgMastery < 30
-                            ? "bg-red-400"
-                            : d.avgMastery < 70
-                              ? "bg-amber-400"
-                              : "bg-green-400"
-                        }`}
+                        className={`h-full rounded-full transition-all ${masteryBarClass(d.avgMastery)}`}
                         style={{ width: `${d.avgMastery}%` }}
                       />
                     </div>

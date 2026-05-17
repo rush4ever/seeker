@@ -9,8 +9,9 @@ import {
 import { parseWordDocument } from "../../lib/wordParser";
 import { getDb } from "../../lib/db";
 import { useSimilarQuestions } from "../../hooks/useSimilarQuestions";
-import { updateMastery, checkGraduationStatus } from "../../lib/mastery";
+import { updateMastery, checkGraduationStatus, masteryBarClass } from "../../lib/mastery";
 import type { Question, Subject, SimilarQuestion } from "../../types";
+import EmptyState from "../../components/common/EmptyState";
 import {
   FileUp,
   Filter,
@@ -47,6 +48,13 @@ export default function QuestionsPage() {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Import confirmation dialog state
+  const [pendingImport, setPendingImport] = useState<{
+    fileName: string;
+    parsedQuestions: Awaited<ReturnType<typeof parseWordDocument>>["questions"];
+    subject: Subject;
+  } | null>(null);
+
   const {
     ollamaAvailable,
     modelName,
@@ -82,28 +90,13 @@ export default function QuestionsPage() {
       setImporting(true);
       try {
         const result = await parseWordDocument(file);
-        const subject: Subject = file.name.includes("物理") ? "physics" : "math";
+        const guessedSubject: Subject = file.name.includes("物理") ? "physics" : "math";
 
-        const newQuestions = result.questions.map((q) => ({
-          student_id: currentStudent.id,
-          subject,
-          source_type: "word_import" as const,
-          source_file: file.name,
-          number_in_source: q.number,
-          question_type: q.type,
-          chapter: q.chapter,
-          answer_date: q.answerDate,
-          content: q.content,
-          content_images: null,
-          student_answer: null,
-          correct_answer: q.correctAnswer,
-          error_cause: null,
-          difficulty: null,
-          mastery_score: 0,
-          status: "active" as const,
-        }));
-
-        await addQuestions(newQuestions);
+        setPendingImport({
+          fileName: file.name,
+          parsedQuestions: result.questions,
+          subject: guessedSubject,
+        });
       } catch (err) {
         alert(`导入失败: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
@@ -111,8 +104,41 @@ export default function QuestionsPage() {
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [currentStudent, addQuestions]
+    [currentStudent]
   );
+
+  const handleConfirmImport = useCallback(async () => {
+    if (!pendingImport || !currentStudent) return;
+
+    setImporting(true);
+    try {
+      const newQuestions = pendingImport.parsedQuestions.map((q) => ({
+        student_id: currentStudent.id,
+        subject: pendingImport.subject,
+        source_type: "word_import" as const,
+        source_file: pendingImport.fileName,
+        number_in_source: q.number,
+        question_type: q.type,
+        chapter: q.chapter,
+        answer_date: q.answerDate,
+        content: q.content,
+        content_images: null,
+        student_answer: null,
+        correct_answer: q.correctAnswer,
+        error_cause: null,
+        difficulty: null,
+        mastery_score: 0,
+        status: "active" as const,
+      }));
+
+      await addQuestions(newQuestions);
+      setPendingImport(null);
+    } catch (err) {
+      alert(`导入失败: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setImporting(false);
+    }
+  }, [pendingImport, currentStudent, addQuestions]);
 
   const handleAnalyze = useCallback(
     async (question: Question) => {
@@ -183,58 +209,53 @@ export default function QuestionsPage() {
 
     let success = 0;
     let failed = 0;
+    const concurrency = 3;
 
-    for (let i = 0; i < unanalyzedQuestions.length; i++) {
-      setBatchProgress({ current: i + 1, total: unanalyzedQuestions.length });
-      const q = unanalyzedQuestions[i];
-      try {
-        const { analyzeQuestion } = await import("../../lib/ollama");
-        const result = await analyzeQuestion(
-          q.content,
-          allNodes,
-          status.model
-        );
+    for (let i = 0; i < unanalyzedQuestions.length; i += concurrency) {
+      const batch = unanalyzedQuestions.slice(i, i + concurrency);
+      const batchOffset = i;
 
-        // Match knowledge points
-        const matchedIds: number[] = [];
-        const allNodeList = (
-          await (await getDb()).select<{ id: number; name: string }[]>(
-            "SELECT id, name FROM knowledge_nodes"
-          )
-        ).filter((n) => n.name !== "数学" && n.name !== "物理");
+      await Promise.all(
+        batch.map(async (q, idx) => {
+          const overallIdx = batchOffset + idx;
+          setBatchProgress({ current: overallIdx + 1, total: unanalyzedQuestions.length });
 
-        for (const kpName of result.knowledgePoints) {
-          const match = allNodeList.find(
-            (n) =>
-              n.name === kpName ||
-              kpName.includes(n.name) ||
-              n.name.includes(kpName)
-          );
-          if (match && !matchedIds.includes(match.id)) {
-            matchedIds.push(match.id);
+          try {
+            const { analyzeQuestion } = await import("../../lib/ollama");
+            const result = await analyzeQuestion(q.content, allNodes, status.model);
+
+            const matchedIds: number[] = [];
+            for (const kpName of result.knowledgePoints) {
+              const match = allNodes.find(
+                (n) => n.name === kpName || kpName.includes(n.name) || n.name.includes(kpName)
+              );
+              if (match && !matchedIds.includes(match.id)) {
+                matchedIds.push(match.id);
+              }
+            }
+
+            if (matchedIds.length === 0 && q.chapter) {
+              const cm = allNodes.find((n) => q.chapter!.includes(n.name));
+              if (cm) matchedIds.push(cm.id);
+            }
+
+            const db = await getDb();
+            await db.execute(
+              `UPDATE questions SET error_cause = $1, difficulty = $2, updated_at = datetime('now') WHERE id = $3`,
+              [result.errorCause, result.difficulty, q.id]
+            );
+            for (const kid of matchedIds) {
+              await db.execute(
+                `INSERT OR IGNORE INTO question_knowledge (question_id, knowledge_id, confidence) VALUES ($1, $2, 0.8)`,
+                [q.id, kid]
+              );
+            }
+            success++;
+          } catch {
+            failed++;
           }
-        }
-
-        if (matchedIds.length === 0 && q.chapter) {
-          const cm = allNodeList.find((n) => q.chapter!.includes(n.name));
-          if (cm) matchedIds.push(cm.id);
-        }
-
-        const db = await getDb();
-        await db.execute(
-          `UPDATE questions SET error_cause = $1, difficulty = $2, updated_at = datetime('now') WHERE id = $3`,
-          [result.errorCause, result.difficulty, q.id]
-        );
-        for (const kid of matchedIds) {
-          await db.execute(
-            `INSERT OR IGNORE INTO question_knowledge (question_id, knowledge_id, confidence) VALUES ($1, $2, 0.8)`,
-            [q.id, kid]
-          );
-        }
-        success++;
-      } catch {
-        failed++;
-      }
+        })
+      );
     }
 
     setBatchProgress(null);
@@ -246,12 +267,7 @@ export default function QuestionsPage() {
   }, [unanalyzedQuestions, checkOllama, refresh]);
 
   if (!currentStudent) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400">
-        <BookOpen size={48} className="mb-4" />
-        <p className="text-lg">请先在左侧选择一个学生</p>
-      </div>
-    );
+    return <EmptyState icon={BookOpen} message="请先在左侧选择一个学生" />;
   }
 
   return (
@@ -386,6 +402,61 @@ export default function QuestionsPage() {
           ))}
         </div>
       )}
+
+      {/* Import confirmation dialog */}
+      {pendingImport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">确认导入</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              文件: <span className="font-medium">{pendingImport.fileName}</span>
+              <br />
+              共解析出 <span className="font-medium">{pendingImport.parsedQuestions.length}</span> 道错题
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">学科</label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setPendingImport({ ...pendingImport, subject: "math" })}
+                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    pendingImport.subject === "math"
+                      ? "bg-primary-50 border-primary-300 text-primary-700"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  数学
+                </button>
+                <button
+                  onClick={() => setPendingImport({ ...pendingImport, subject: "physics" })}
+                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    pendingImport.subject === "physics"
+                      ? "bg-primary-50 border-primary-300 text-primary-700"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  物理
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmImport}
+                disabled={importing}
+                className="btn-primary flex-1 text-sm disabled:opacity-50"
+              >
+                {importing ? "导入中..." : "确认导入"}
+              </button>
+              <button
+                onClick={() => setPendingImport(null)}
+                disabled={importing}
+                className="btn-secondary flex-1 text-sm disabled:opacity-50"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -503,13 +574,7 @@ function QuestionCard({
             <span className="text-xs text-gray-500">掌握度</span>
             <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]">
               <div
-                className={`h-full rounded-full transition-all ${
-                  question.mastery_score < 30
-                    ? "bg-red-400"
-                    : question.mastery_score < 70
-                      ? "bg-amber-400"
-                      : "bg-green-400"
-                }`}
+                className={`h-full rounded-full transition-all ${masteryBarClass(question.mastery_score)}`}
                 style={{ width: `${question.mastery_score}%` }}
               />
             </div>

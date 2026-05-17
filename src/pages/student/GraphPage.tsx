@@ -7,6 +7,8 @@ import { BookOpen, Brain, Filter, Dumbbell, Loader2 } from "lucide-react";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
 import { getDb } from "../../lib/db";
 import type { Question } from "../../types";
+import { masteryTextClass, masteryBgClass, masteryColorHex, masteryLabel } from "../../lib/mastery";
+import EmptyState from "../../components/common/EmptyState";
 
 const SUBJECTS: { id: Subject; label: string }[] = [
   { id: "math", label: "数学" },
@@ -65,12 +67,7 @@ export default function GraphPage() {
   ).length;
 
   if (!currentStudent) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400">
-        <Brain size={48} className="mb-4" />
-        <p className="text-lg">请先在左侧选择一个学生</p>
-      </div>
-    );
+    return <EmptyState icon={Brain} message="请先在左侧选择一个学生" />;
   }
 
   return (
@@ -256,23 +253,9 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
     }
   };
 
-  const colorClass =
-    !hasQuestions
-      ? "text-gray-500"
-      : mastery < 30
-        ? "text-red-500"
-        : mastery < 70
-          ? "text-amber-500"
-          : "text-green-500";
-
-  const bgClass =
-    !hasQuestions
-      ? "bg-gray-50"
-      : mastery < 30
-        ? "bg-red-50"
-        : mastery < 70
-          ? "bg-amber-50"
-          : "bg-green-50";
+  const colorClass = !hasQuestions ? "text-gray-500" : masteryTextClass(mastery);
+  const bgClass = !hasQuestions ? "bg-gray-50" : masteryBgClass(mastery);
+  const hexColor = !hasQuestions ? "#9ca3af" : masteryColorHex(mastery);
 
   return (
     <div className="p-4 space-y-4">
@@ -296,14 +279,8 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
         {hasQuestions && (
           <div className="mt-2 h-2 bg-white/60 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${
-                mastery < 30
-                  ? "bg-red-500"
-                  : mastery < 70
-                    ? "bg-amber-500"
-                    : "bg-green-500"
-              }`}
-              style={{ width: `${mastery}%` }}
+              className={`h-full rounded-full transition-all ${!hasQuestions ? "" : masteryTextClass(mastery).replace("text-", "bg-")}`}
+              style={{ width: `${mastery}%`, backgroundColor: hasQuestions ? undefined : "#9ca3af" }}
             />
           </div>
         )}
@@ -319,25 +296,9 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
       <div>
         <span
           className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${colorClass} bg-opacity-10`}
-          style={{
-            backgroundColor: `${
-              !hasQuestions
-                ? "#9ca3af"
-                : mastery < 30
-                  ? "#ef4444"
-                  : mastery < 70
-                    ? "#f59e0b"
-                    : "#22c55e"
-            }20`,
-          }}
+          style={{ backgroundColor: `${hexColor}20` }}
         >
-          {!hasQuestions
-            ? "未学习"
-            : mastery < 30
-              ? "薄弱"
-              : mastery < 70
-                ? "一般"
-                : "已掌握"}
+          {!hasQuestions ? "未学习" : masteryLabel(mastery)}
         </span>
       </div>
 

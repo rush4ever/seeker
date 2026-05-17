@@ -7,6 +7,7 @@ import PhotoUploader from "../../components/grading/PhotoUploader";
 import QuestionGradingCard from "../../components/grading/QuestionGradingCard";
 import ResultPanel from "../../components/grading/ResultPanel";
 import { Camera } from "lucide-react";
+import EmptyState from "../../components/common/EmptyState";
 
 // Demo data for development — will be replaced with session loading
 const DEMO_QUESTIONS: GeneratedQuestion[] = [
@@ -150,12 +151,7 @@ export default function GradingPage() {
   }, [activeIndex]);
 
   if (!currentStudent) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400">
-        <Camera size={48} className="mb-4" />
-        <p className="text-lg">请先在左侧选择一个学生</p>
-      </div>
-    );
+    return <EmptyState icon={Camera} message="请先在左侧选择一个学生" />;
   }
 
   const activeItem = items[activeIndex];

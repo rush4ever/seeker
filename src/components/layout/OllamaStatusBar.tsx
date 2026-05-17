@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
+import { AlertCircle, Loader2, X } from "lucide-react";
 import { detectOllamaState, getStatusMessage, getStatusColor, type OllamaState } from "../../lib/ollamaStatus";
 
 export default function OllamaStatusBar() {

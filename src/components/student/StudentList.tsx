@@ -1,11 +1,12 @@
 import type { Student } from "../../types";
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil } from "lucide-react";
 
 interface Props {
   students: Student[];
   currentStudentId: number | null;
   onSelect: (student: Student) => void;
   onDelete: (id: number) => void;
+  onEdit: (student: Student) => void;
 }
 
 function gradeLabel(grade: number): string {
@@ -13,7 +14,7 @@ function gradeLabel(grade: number): string {
   return map[grade] || `Grade ${grade}`;
 }
 
-export default function StudentList({ students, currentStudentId, onSelect, onDelete }: Props) {
+export default function StudentList({ students, currentStudentId, onSelect, onDelete, onEdit }: Props) {
   return (
     <div className="space-y-2">
       {students.map((student) => (
@@ -26,18 +27,28 @@ export default function StudentList({ students, currentStudentId, onSelect, onDe
               : "bg-white border border-gray-100 hover:bg-gray-50"
           }`}
         >
-          <div>
-            <p className="font-medium">{student.name}</p>
+          <div className="min-w-0">
+            <p className="font-medium truncate">{student.name}</p>
             <p className="text-sm text-gray-500">
               {gradeLabel(student.current_grade)} · {student.current_semester === 1 ? "上" : "下"}学期
             </p>
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(student.id); }}
-            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-          >
-            <Trash2 size={16} />
-          </button>
+          <div className="flex items-center shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(student); }}
+              className="p-2 text-gray-400 hover:text-primary-500 transition-colors"
+              title="编辑"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(student.id); }}
+              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              title="删除"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
         </div>
       ))}
     </div>

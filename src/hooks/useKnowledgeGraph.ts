@@ -54,68 +54,63 @@ export function useKnowledgeGraph({
       );
 
       // Fetch question stats per knowledge node
-      // We match questions whose chapter contains the knowledge node name
       const statsMap = new Map<
         number,
         { question_count: number; avg_mastery: number | null }
       >();
 
       if (studentId) {
+        // Identify leaf nodes (nodes with no children)
+        const leafIds = new Set<number>();
         for (const node of rawNodes) {
-          // Leaf nodes (actual knowledge points) match by name
-          // Non-leaf nodes (grades, chapters) aggregate their descendants
           const hasChildren = rawNodes.some((n) => n.parent_id === node.id);
+          if (!hasChildren) leafIds.add(node.id);
+        }
 
-          let result: { question_count: number; avg_mastery: number | null };
+        // Fetch stats for all leaf nodes in a single query via question_knowledge
+        if (leafIds.size > 0) {
+          const placeholders = Array.from(leafIds).map(() => "?").join(",");
+          const leafRows = await db.select<
+            { knowledge_id: number; question_count: number; avg_mastery: number }[]
+          >(
+            `SELECT qk.knowledge_id,
+                    COUNT(*) as question_count,
+                    AVG(q.mastery_score) as avg_mastery
+             FROM question_knowledge qk
+             JOIN questions q ON qk.question_id = q.id
+             WHERE q.student_id = ? AND qk.knowledge_id IN (${placeholders})
+             GROUP BY qk.knowledge_id`,
+            [studentId, ...leafIds]
+          );
 
-          if (hasChildren) {
-            // For non-leaf nodes, aggregate all descendant leaf nodes
-            const descendantIds = getDescendantIds(node.id, rawNodes);
-            const descendantNames = descendantIds
-              .map((id) => rawNodes.find((n) => n.id === id)?.name)
-              .filter(Boolean) as string[];
-
-            if (descendantNames.length === 0) {
-              result = { question_count: 0, avg_mastery: null };
-            } else {
-              // Build chapter LIKE conditions for all descendants
-              const likeConditions = descendantNames
-                .map((_, i) => `chapter LIKE $${i + 3}`)
-                .join(" OR ");
-              const likeParams = descendantNames.map((n) => `%${n}%`);
-
-              const rows = await db.select<
-                { question_count: number; avg_mastery: number }[]
-              >(
-                `SELECT COUNT(*) as question_count, COALESCE(AVG(mastery_score), 0) as avg_mastery
-                 FROM questions
-                 WHERE student_id = $1 AND subject = $2 AND (${likeConditions})`,
-                [studentId, subject, ...likeParams]
-              );
-              const row = rows[0];
-              result = {
-                question_count: row.question_count,
-                avg_mastery: row.question_count > 0 ? row.avg_mastery : null,
-              };
-            }
-          } else {
-            // For leaf nodes, match by name directly
-            const rows = await db.select<
-              { question_count: number; avg_mastery: number }[]
-            >(
-              `SELECT COUNT(*) as question_count, COALESCE(AVG(mastery_score), 0) as avg_mastery
-               FROM questions
-               WHERE student_id = $1 AND subject = $2 AND chapter LIKE $3`,
-              [studentId, subject, `%${node.name}%`]
-            );
-            const row = rows[0];
-            result = {
+          for (const row of leafRows) {
+            statsMap.set(row.knowledge_id, {
               question_count: row.question_count,
               avg_mastery: row.question_count > 0 ? row.avg_mastery : null,
-            };
+            });
           }
+        }
 
-          statsMap.set(node.id, result);
+        // Aggregate non-leaf nodes from their descendant leaf stats
+        for (const node of rawNodes) {
+          if (!statsMap.has(node.id)) {
+            const descendantLeafIds = getDescendantLeafIds(node.id, rawNodes);
+            let totalQuestions = 0;
+            let weightedMasterySum = 0;
+
+            for (const leafId of descendantLeafIds) {
+              const leafStats = statsMap.get(leafId);
+              if (leafStats && leafStats.question_count > 0) {
+                totalQuestions += leafStats.question_count;
+                weightedMasterySum += leafStats.avg_mastery! * leafStats.question_count;
+              }
+            }
+
+            statsMap.set(node.id, {
+              question_count: totalQuestions,
+              avg_mastery: totalQuestions > 0 ? weightedMasterySum / totalQuestions : null,
+            });
+          }
         }
       }
 
@@ -147,7 +142,8 @@ export function useKnowledgeGraph({
   return { nodes, tree, loading, error, refresh };
 }
 
-function getDescendantIds(
+/** Get all descendant leaf node IDs for a given parent. */
+function getDescendantLeafIds(
   parentId: number,
   allNodes: KnowledgeNode[]
 ): number[] {
@@ -156,7 +152,7 @@ function getDescendantIds(
   for (const child of children) {
     const hasGrandchildren = allNodes.some((n) => n.parent_id === child.id);
     if (hasGrandchildren) {
-      result.push(...getDescendantIds(child.id, allNodes));
+      result.push(...getDescendantLeafIds(child.id, allNodes));
     } else {
       result.push(child.id);
     }

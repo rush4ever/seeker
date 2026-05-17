@@ -5,7 +5,9 @@ import { getWeakestKnowledgePoints, type KnowledgeStat } from "../../lib/schedul
 import { buildQuickPracticeTitle, formatWeakPointNames } from "../../lib/quickPractice";
 import type { Question } from "../../types";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
-import { Target, BookOpen, Brain, ArrowRight, TrendingUp, Dumbbell, Loader2 } from "lucide-react";
+import { Target, BookOpen, Brain, ArrowRight, TrendingUp, Loader2 } from "lucide-react";
+import { masteryTextClass, masteryBarClass } from "../../lib/mastery";
+import EmptyState from "../../components/common/EmptyState";
 
 export default function HomePage() {
   const { currentStudent, setActivePage } = useApp();
@@ -97,12 +99,7 @@ export default function HomePage() {
   }, [currentStudent, weakPoints]);
 
   if (!currentStudent) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400">
-        <BookOpen size={48} className="mb-4" />
-        <p className="text-lg">请在左侧选择一个学生</p>
-      </div>
-    );
+    return <EmptyState icon={BookOpen} message="请在左侧选择一个学生" />;
   }
 
   return (
@@ -185,28 +182,14 @@ export default function HomePage() {
                   <span className="text-sm text-gray-500">
                     {point.questionCount} 道错题
                   </span>
-                  <span
-                    className={`text-sm font-medium ${
-                      point.avgMastery < 30
-                        ? "text-red-500"
-                        : point.avgMastery < 70
-                          ? "text-amber-500"
-                          : "text-green-500"
-                    }`}
-                  >
+                  <span className={`text-sm font-medium ${masteryTextClass(point.avgMastery)}`}>
                     {point.avgMastery}%
                   </span>
                 </div>
                 <p className="font-medium text-gray-800">{point.name}</p>
                 <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${
-                      point.avgMastery < 30
-                        ? "bg-red-400"
-                        : point.avgMastery < 70
-                          ? "bg-amber-400"
-                          : "bg-green-400"
-                    }`}
+                    className={`h-full rounded-full transition-all ${masteryBarClass(point.avgMastery)}`}
                     style={{ width: `${point.avgMastery}%` }}
                   />
                 </div>

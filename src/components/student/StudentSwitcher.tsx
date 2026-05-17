@@ -4,11 +4,23 @@ import { useStudents } from "../../hooks/useStudents";
 import StudentForm from "./StudentForm";
 import StudentList from "./StudentList";
 import { UserPlus } from "lucide-react";
+import type { Student } from "../../types";
 
 export default function StudentSwitcher() {
   const { currentStudent, setCurrentStudent } = useApp();
-  const { students, add, remove } = useStudents();
+  const { students, add, update, remove } = useStudents();
   const [showForm, setShowForm] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+
+  const handleEdit = (student: Student) => {
+    setEditingStudent(student);
+    setShowForm(true);
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingStudent(null);
+  };
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 h-full flex flex-col">
@@ -18,8 +30,16 @@ export default function StudentSwitcher() {
       <div className="flex-1 overflow-auto p-3">
         {showForm ? (
           <StudentForm
-            onSubmit={(req) => { add(req); setShowForm(false); }}
-            onCancel={() => setShowForm(false)}
+            initialData={editingStudent ?? undefined}
+            onSubmit={(req) => {
+              if ("id" in req) {
+                update(req);
+              } else {
+                add(req);
+              }
+              handleCancel();
+            }}
+            onCancel={handleCancel}
           />
         ) : (
           <>
@@ -28,6 +48,7 @@ export default function StudentSwitcher() {
               currentStudentId={currentStudent?.id ?? null}
               onSelect={setCurrentStudent}
               onDelete={remove}
+              onEdit={handleEdit}
             />
             <button
               onClick={() => setShowForm(true)}

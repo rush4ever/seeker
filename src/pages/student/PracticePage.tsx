@@ -11,6 +11,7 @@ import {
   Filter,
 } from "lucide-react";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
+import EmptyState from "../../components/common/EmptyState";
 
 function subjectLabel(s: Subject): string {
   return s === "math" ? "数学" : "物理";
@@ -65,12 +66,7 @@ export default function PracticePage() {
   const selectedQuestions = questions.filter((q) => selectedIds.has(q.id));
 
   if (!currentStudent) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400">
-        <BookOpen size={48} className="mb-4" />
-        <p className="text-lg">请先在左侧选择一个学生</p>
-      </div>
-    );
+    return <EmptyState icon={BookOpen} message="请先在左侧选择一个学生" />;
   }
 
   return (

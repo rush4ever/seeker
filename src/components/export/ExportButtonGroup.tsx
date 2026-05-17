@@ -3,6 +3,7 @@ import { FileText, FileSpreadsheet, Loader2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import type { ExportRequest, PracticeMode, Question } from "../../types";
+import { getDb } from "../../lib/db";
 
 interface Props {
   questions: Question[];
@@ -26,11 +27,32 @@ const DIFFICULTY_MAP: Record<string, string> = {
   hard: "困难",
 };
 
+async function loadKnowledgePoints(questionIds: number[]): Promise<Map<number, string[]>> {
+  if (questionIds.length === 0) return new Map();
+  const db = await getDb();
+  const placeholders = questionIds.map(() => "?").join(",");
+  const rows = await db.select<{ question_id: number; name: string }[]>(
+    `SELECT qk.question_id, kn.name
+     FROM question_knowledge qk
+     JOIN knowledge_nodes kn ON qk.knowledge_id = kn.id
+     WHERE qk.question_id IN (${placeholders})`,
+    questionIds
+  );
+  const map = new Map<number, string[]>();
+  for (const row of rows) {
+    const existing = map.get(row.question_id) ?? [];
+    existing.push(row.name);
+    map.set(row.question_id, existing);
+  }
+  return map;
+}
+
 function buildExportRequest(
   questions: Question[],
   studentName: string,
   mode: PracticeMode,
-  title: string
+  title: string,
+  knowledgeMap: Map<number, string[]>
 ): ExportRequest {
   return {
     student_name: studentName,
@@ -46,7 +68,7 @@ function buildExportRequest(
       difficulty: q.difficulty,
       difficulty_label: q.difficulty ? DIFFICULTY_MAP[q.difficulty] ?? q.difficulty : null,
       chapter: q.chapter,
-      knowledge_points: [], // Will be filled by caller if available
+      knowledge_points: knowledgeMap.get(q.id) ?? [],
       question_type: q.question_type,
     })),
   };
@@ -82,7 +104,9 @@ export default function ExportButtonGroup({
         return;
       }
 
-      const request = buildExportRequest(questions, studentName, mode, title);
+      const questionIds = questions.map((q) => q.id);
+      const knowledgeMap = await loadKnowledgePoints(questionIds);
+      const request = buildExportRequest(questions, studentName, mode, title, knowledgeMap);
       const command = format === "pdf" ? "export_pdf" : "export_word";
       await invoke(command, { request, path });
 

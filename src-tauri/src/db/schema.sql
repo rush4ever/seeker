@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS questions (
   difficulty TEXT CHECK (difficulty IN ('easy', 'medium', 'hard')),
   mastery_score REAL NOT NULL DEFAULT 0 CHECK (mastery_score >= 0 AND mastery_score <= 100),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'graduated', 'archived')),
+  similar_questions TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

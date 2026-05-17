@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import type { KnowledgeTreeNode } from "../../types";
 import { ChevronRight, ChevronDown, Circle } from "lucide-react";
+import { masteryColorHex, masteryLabel } from "../../lib/mastery";
 
 interface Props {
   tree: KnowledgeTreeNode[];
@@ -45,8 +46,10 @@ function TreeNode({
     }
   }, [hasChildren]);
 
-  const masteryColor = getMasteryColor(item.node.avg_mastery, item.node.question_count);
-  const masteryLabel = getMasteryLabel(item.node.avg_mastery, item.node.question_count);
+  const hasQuestions = item.node.question_count > 0;
+  const masteryScore = item.node.avg_mastery ?? 0;
+  const color = hasQuestions ? masteryColorHex(masteryScore) : "#9ca3af";
+  const label = hasQuestions ? masteryLabel(masteryScore) : "未学习";
 
   return (
     <div>
@@ -78,8 +81,8 @@ function TreeNode({
         <Circle
           size={10}
           className="shrink-0"
-          fill={masteryColor}
-          stroke={masteryColor}
+          fill={color}
+          stroke={color}
         />
 
         {/* Node name */}
@@ -101,11 +104,11 @@ function TreeNode({
           <span
             className="px-1.5 py-0.5 rounded-full font-medium"
             style={{
-              backgroundColor: `${masteryColor}20`,
-              color: masteryColor,
+              backgroundColor: `${color}20`,
+              color: color,
             }}
           >
-            {masteryLabel}
+            {label}
           </span>
         </div>
       </div>
@@ -128,24 +131,3 @@ function TreeNode({
   );
 }
 
-function getMasteryColor(
-  avgMastery: number | null,
-  questionCount: number
-): string {
-  if (questionCount === 0) return "#9ca3af"; // gray-400
-  if (avgMastery === null) return "#9ca3af";
-  if (avgMastery < 30) return "#ef4444"; // red-500
-  if (avgMastery < 70) return "#f59e0b"; // amber-500
-  return "#22c55e"; // green-500
-}
-
-function getMasteryLabel(
-  avgMastery: number | null,
-  questionCount: number
-): string {
-  if (questionCount === 0) return "未学习";
-  if (avgMastery === null) return "未学习";
-  if (avgMastery < 30) return "薄弱";
-  if (avgMastery < 70) return "一般";
-  return "掌握";
-}

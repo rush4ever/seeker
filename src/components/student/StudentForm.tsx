@@ -1,24 +1,35 @@
 import React, { useState } from "react";
-import type { CreateStudentRequest } from "../../types";
+import type { CreateStudentRequest, UpdateStudentRequest, Student } from "../../types";
 
 interface Props {
-  onSubmit: (req: CreateStudentRequest) => void;
+  initialData?: Student;
+  onSubmit: (req: CreateStudentRequest | UpdateStudentRequest) => void;
   onCancel: () => void;
 }
 
-export default function StudentForm({ onSubmit, onCancel }: Props) {
-  const [name, setName] = useState("");
-  const [grade, setGrade] = useState(8);
-  const [semester, setSemester] = useState(2);
+export default function StudentForm({ initialData, onSubmit, onCancel }: Props) {
+  const [name, setName] = useState(initialData?.name ?? "");
+  const [grade, setGrade] = useState(initialData?.current_grade ?? 8);
+  const [semester, setSemester] = useState(initialData?.current_semester ?? 2);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      name,
-      current_grade: grade,
-      current_semester: semester,
-      textbook_version: "苏科版",
-    });
+    if (initialData) {
+      onSubmit({
+        id: initialData.id,
+        name,
+        current_grade: grade,
+        current_semester: semester,
+        textbook_version: "苏科版",
+      });
+    } else {
+      onSubmit({
+        name,
+        current_grade: grade,
+        current_semester: semester,
+        textbook_version: "苏科版",
+      });
+    }
   };
 
   return (
@@ -59,7 +70,7 @@ export default function StudentForm({ onSubmit, onCancel }: Props) {
         </select>
       </div>
       <div className="flex gap-3 pt-2">
-        <button type="submit" className="btn-primary">添加</button>
+        <button type="submit" className="btn-primary">{initialData ? "保存" : "添加"}</button>
         <button type="button" onClick={onCancel} className="btn-secondary">取消</button>
       </div>
     </form>
