@@ -82,6 +82,28 @@ export interface SimilarQuestion {
 }
 
 export type PracticeMode = "questions_only" | "full_analysis";
+export type ExportFormat = "pdf" | "word";
+
+export interface ExportQuestionInput {
+  id: number;
+  content: string;
+  correct_answer: string | null;
+  student_answer: string | null;
+  error_cause: ErrorCause | null;
+  error_cause_label: string | null;
+  difficulty: Difficulty | null;
+  difficulty_label: string | null;
+  chapter: string | null;
+  knowledge_points: string[];
+  question_type: QuestionType;
+}
+
+export interface ExportRequest {
+  student_name: string;
+  questions: ExportQuestionInput[];
+  mode: PracticeMode;
+  title: string;
+}
 
 export interface GeneratedQuestion {
   content: string;

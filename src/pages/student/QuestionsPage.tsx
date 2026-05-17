@@ -24,6 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import ExportButtonGroup from "../../components/export/ExportButtonGroup";
 
 function subjectLabel(s: Subject): string {
   return s === "math" ? "数学" : "物理";
@@ -320,6 +321,16 @@ export default function QuestionsPage() {
                 </>
               )}
             </button>
+          )}
+
+          {/* Export button */}
+          {filteredQuestions.length > 0 && currentStudent && (
+            <ExportButtonGroup
+              questions={filteredQuestions}
+              studentName={currentStudent.name}
+              mode="full_analysis"
+              title={`${filterSubject === "all" ? "全部" : subjectLabel(filterSubject)}错题集`}
+            />
           )}
 
           {/* Import button */}

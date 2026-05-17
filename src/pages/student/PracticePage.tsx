@@ -1,17 +1,16 @@
 import { useState, useCallback, useEffect } from "react";
 import { useApp } from "../../context/AppContext";
 import { getDb } from "../../lib/db";
-import { buildPracticeSheet, formatForPrint } from "../../lib/practiceSheet";
 import type { Question, Subject, PracticeMode } from "../../types";
 import {
   BookOpen,
-  Printer,
   FileText,
   ClipboardList,
   CheckSquare,
   Square,
   Filter,
 } from "lucide-react";
+import ExportButtonGroup from "../../components/export/ExportButtonGroup";
 
 function subjectLabel(s: Subject): string {
   return s === "math" ? "数学" : "物理";
@@ -63,41 +62,7 @@ export default function PracticePage() {
     });
   }, [filteredQuestions]);
 
-  const handleGenerate = useCallback(async () => {
-    if (!currentStudent || selectedIds.size === 0) return;
-
-    const selectedQuestions = questions.filter((q) => selectedIds.has(q.id));
-
-    // Build knowledge map
-    const db = await getDb();
-    const knowledgeMap = new Map<number, string[]>();
-    for (const q of selectedQuestions) {
-      const rows = await db.select<{ name: string }[]>(
-        `SELECT kn.name
-         FROM question_knowledge qk
-         JOIN knowledge_nodes kn ON qk.knowledge_id = kn.id
-         WHERE qk.question_id = $1`,
-        [q.id]
-      );
-      knowledgeMap.set(q.id, rows.map((r) => r.name));
-    }
-
-    const sheet = buildPracticeSheet(
-      selectedQuestions,
-      mode,
-      knowledgeMap
-    );
-    const html = formatForPrint(sheet, currentStudent.name);
-
-    // Open print window
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      // Auto-print after a short delay for styles to load
-      setTimeout(() => printWindow.print(), 500);
-    }
-  }, [currentStudent, selectedIds, questions, mode]);
+  const selectedQuestions = questions.filter((q) => selectedIds.has(q.id));
 
   if (!currentStudent) {
     return (
@@ -161,15 +126,16 @@ export default function PracticePage() {
             </select>
           </div>
 
-          {/* Generate button */}
-          <button
-            onClick={handleGenerate}
-            disabled={selectedIds.size === 0}
-            className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Printer size={14} />
-            生成并打印
-          </button>
+          {/* Export buttons */}
+          {currentStudent && (
+            <ExportButtonGroup
+              questions={selectedQuestions}
+              studentName={currentStudent.name}
+              mode={mode}
+              title={mode === "questions_only" ? "错题练习卷" : "错题分析卷"}
+              disabled={selectedIds.size === 0}
+            />
+          )}
         </div>
       </div>
 
