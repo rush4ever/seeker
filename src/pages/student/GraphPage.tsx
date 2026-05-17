@@ -3,7 +3,10 @@ import { useApp } from "../../context/AppContext";
 import { useKnowledgeGraph } from "../../hooks/useKnowledgeGraph";
 import KnowledgeTree from "../../components/graph/KnowledgeTree";
 import type { KnowledgeTreeNode, Subject } from "../../types";
-import { BookOpen, Brain, Filter } from "lucide-react";
+import { BookOpen, Brain, Filter, Dumbbell, Loader2 } from "lucide-react";
+import ExportButtonGroup from "../../components/export/ExportButtonGroup";
+import { getDb } from "../../lib/db";
+import type { Question } from "../../types";
 
 const SUBJECTS: { id: Subject; label: string }[] = [
   { id: "math", label: "数学" },
@@ -172,8 +175,8 @@ export default function GraphPage() {
 
         {/* Detail panel */}
         <div className="w-80 bg-white rounded-xl border border-gray-200 overflow-auto shrink-0">
-          {selectedNode ? (
-            <NodeDetail node={selectedNode} />
+          {selectedNode && currentStudent ? (
+            <NodeDetail node={selectedNode} studentId={currentStudent.id} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-gray-400 p-6 text-center">
               <Brain size={48} className="mb-4" />
@@ -206,10 +209,52 @@ function SummaryCard({
   );
 }
 
-function NodeDetail({ node }: { node: KnowledgeTreeNode }) {
+function collectLeafIds(node: KnowledgeTreeNode): number[] {
+  if (node.children.length === 0) {
+    return [node.node.id];
+  }
+  return node.children.flatMap(collectLeafIds);
+}
+
+async function fetchNodeQuestions(
+  node: KnowledgeTreeNode,
+  studentId: number
+): Promise<Question[]> {
+  const leafIds = collectLeafIds(node);
+  if (leafIds.length === 0) return [];
+
+  const placeholders = leafIds.map(() => '?').join(',');
+  const db = await getDb();
+  const rows = await db.select<Question[]>(
+    `SELECT DISTINCT q.* FROM questions q
+     JOIN question_knowledge qk ON q.id = qk.question_id
+     WHERE qk.knowledge_id IN (${placeholders}) AND q.student_id = ?
+     ORDER BY q.mastery_score ASC, q.created_at DESC
+     LIMIT 30`,
+    [...leafIds, studentId]
+  );
+  return rows;
+}
+
+function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: number }) {
   const { node: kn } = node;
   const mastery = kn.avg_mastery ?? 0;
   const hasQuestions = kn.question_count > 0;
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleGeneratePractice = async () => {
+    setLoading(true);
+    try {
+      const qs = await fetchNodeQuestions(node, studentId);
+      setQuestions(qs);
+    } catch (err) {
+      console.error("Failed to fetch questions:", err);
+      alert("加载错题失败");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const colorClass =
     !hasQuestions
@@ -295,6 +340,44 @@ function NodeDetail({ node }: { node: KnowledgeTreeNode }) {
                 : "已掌握"}
         </span>
       </div>
+
+      {/* Practice generation */}
+      {hasQuestions && (
+        <div className="pt-2 border-t border-gray-100 space-y-3">
+          {!questions.length ? (
+            <button
+              onClick={handleGeneratePractice}
+              disabled={loading}
+              className="w-full btn-primary flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Dumbbell size={14} />
+              )}
+              {loading ? "加载中..." : "针对此知识点练习"}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                已加载 <span className="font-medium">{questions.length}</span> 道关联错题
+              </p>
+              <ExportButtonGroup
+                questions={questions}
+                studentName=""
+                mode="questions_only"
+                title={`${kn.name}专项练习`}
+              />
+              <button
+                onClick={() => setQuestions([])}
+                className="w-full text-xs text-gray-400 hover:text-gray-600 py-1"
+              >
+                重新加载
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Sub-nodes list if any */}
       {node.children.length > 0 && (
