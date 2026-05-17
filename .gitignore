@@ -17,3 +17,5 @@ src-tauri/target/
 
 # Logs
 *.log
+.superpowers/
+test-results/

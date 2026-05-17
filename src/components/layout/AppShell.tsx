@@ -4,6 +4,7 @@ import StudentSwitcher from "../student/StudentSwitcher";
 import RoleToggle from "./RoleToggle";
 import StudentNav from "./StudentNav";
 import ParentNav from "./ParentNav";
+import OllamaStatusBar from "./OllamaStatusBar";
 
 interface Props {
   children: React.ReactNode;
@@ -37,6 +38,7 @@ export default function AppShell({ children }: Props) {
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
+        <OllamaStatusBar />
         <header className="h-14 bg-white border-b border-gray-200 flex items-center px-6">
           <h1 className="text-lg font-medium text-gray-800">
             {currentStudent
