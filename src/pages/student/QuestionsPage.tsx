@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useApp } from "../../context/AppContext";
 import { useQuestions } from "../../hooks/useQuestions";
 import {
@@ -24,8 +24,10 @@ import {
   Wand2,
   ChevronDown,
   ChevronUp,
+  X,
 } from "lucide-react";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
+import { MathContent } from "../../components/common/MathContent";
 
 function subjectLabel(s: Subject): string {
   return s === "math" ? "数学" : "物理";
@@ -522,6 +524,22 @@ function QuestionCard({
   const [showSimilar, setShowSimilar] = useState(false);
   const [similarQuestions, setSimilarQuestions] = useState<SimilarQuestion[]>([]);
   const [similarLoaded, setSimilarLoaded] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
+
+  const contentImages = useMemo(() => {
+    if (!question.content_images) return [];
+    try {
+      const parsed = JSON.parse(question.content_images) as {
+        name: string;
+        data: string;
+        mimeType: string;
+        description: string;
+      }[];
+      return parsed;
+    } catch {
+      return [];
+    }
+  }, [question.content_images]);
 
   useEffect(() => {
     if (!showSimilar || similarLoaded) return;
@@ -600,7 +618,12 @@ function QuestionCard({
           </div>
 
           {/* Content */}
-          <p className="text-gray-800 line-clamp-2">{question.content}</p>
+          <div
+            className="text-gray-800 line-clamp-2 cursor-pointer"
+            onClick={() => setShowDetail(true)}
+          >
+            <MathContent text={question.content} />
+          </div>
 
           {/* Answer & Mastery */}
           {question.correct_answer && (
@@ -690,6 +713,115 @@ function QuestionCard({
           </button>
         </div>
       </div>
+
+      {/* Detail Modal */}
+      {showDetail && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowDetail(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-xs px-2 py-1 rounded-full ${
+                    question.subject === "math"
+                      ? "bg-blue-50 text-blue-600"
+                      : "bg-green-50 text-green-600"
+                  }`}
+                >
+                  {subjectLabel(question.subject)}
+                </span>
+                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                  {typeLabel(question.question_type)}
+                </span>
+                <span className="text-xs text-gray-400">{question.chapter}</span>
+              </div>
+              <button
+                onClick={() => setShowDetail(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              {/* Question text */}
+              <div className="text-gray-800 text-base leading-relaxed">
+                <MathContent text={question.content} />
+              </div>
+
+              {/* Original images */}
+              {contentImages.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-500">原始图片</p>
+                  <div className="grid grid-cols-1 gap-3">
+                    {contentImages.map((img, idx) => (
+                      <div key={idx} className="bg-gray-50 rounded-lg p-3">
+                        <img
+                          src={`data:${img.mimeType};base64,${img.data}`}
+                          alt={img.description}
+                          className="max-w-full h-auto rounded"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          识别结果: {img.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Answer */}
+              {question.correct_answer && (
+                <div className="bg-green-50 rounded-lg p-3">
+                  <p className="text-sm font-medium text-green-700">参考答案</p>
+                  <p className="text-green-600 mt-1">
+                    <MathContent text={question.correct_answer} />
+                  </p>
+                </div>
+              )}
+
+              {/* Analysis info */}
+              {isAnalyzed && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">错因</p>
+                    <p className="text-sm font-medium text-gray-700 mt-1">
+                      {errorCauseLabel(question.error_cause)}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">难度</p>
+                    <p className="text-sm font-medium text-gray-700 mt-1">
+                      {difficultyLabel(question.difficulty)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Mastery */}
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">掌握度</span>
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${masteryBarClass(question.mastery_score)}`}
+                    style={{ width: `${question.mastery_score}%` }}
+                  />
+                </div>
+                <span className="text-xs font-medium text-gray-600">
+                  {Math.round(question.mastery_score)}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
