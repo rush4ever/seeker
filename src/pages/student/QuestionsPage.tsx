@@ -6,7 +6,7 @@ import {
   errorCauseLabel,
   difficultyLabel,
 } from "../../hooks/useQuestionAnalysis";
-import { parseWordDocument } from "../../lib/wordParser";
+import { parseWordDocument, type ParseProgress } from "../../lib/wordParser";
 import { getDb } from "../../lib/db";
 import { useSimilarQuestions } from "../../hooks/useSimilarQuestions";
 import { updateMastery, checkGraduationStatus, masteryBarClass } from "../../lib/mastery";
@@ -35,11 +35,20 @@ function typeLabel(t: string): string {
   return t === "objective" ? "客观题" : "主观题";
 }
 
+function arrayBufferToBase64(data: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < data.byteLength; i++) {
+    binary += String.fromCharCode(data[i]);
+  }
+  return btoa(binary);
+}
+
 export default function QuestionsPage() {
   const { currentStudent } = useApp();
   const { questions, loading, addQuestions, remove, refresh } =
     useQuestions(currentStudent?.id);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<ParseProgress | null>(null);
   const [filterSubject, setFilterSubject] = useState<Subject | "all">("all");
   const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
   const [batchProgress, setBatchProgress] = useState<{
@@ -88,8 +97,11 @@ export default function QuestionsPage() {
       if (!file || !currentStudent) return;
 
       setImporting(true);
+      setImportProgress(null);
       try {
-        const result = await parseWordDocument(file);
+        const result = await parseWordDocument(file, (progress) => {
+          setImportProgress(progress);
+        });
         const guessedSubject: Subject = file.name.includes("物理") ? "physics" : "math";
 
         setPendingImport({
@@ -101,6 +113,7 @@ export default function QuestionsPage() {
         alert(`导入失败: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
         setImporting(false);
+        setImportProgress(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
@@ -112,24 +125,38 @@ export default function QuestionsPage() {
 
     setImporting(true);
     try {
-      const newQuestions = pendingImport.parsedQuestions.map((q) => ({
-        student_id: currentStudent.id,
-        subject: pendingImport.subject,
-        source_type: "word_import" as const,
-        source_file: pendingImport.fileName,
-        number_in_source: q.number,
-        question_type: q.type,
-        chapter: q.chapter,
-        answer_date: q.answerDate,
-        content: q.content,
-        content_images: null,
-        student_answer: null,
-        correct_answer: q.correctAnswer,
-        error_cause: null,
-        difficulty: null,
-        mastery_score: 0,
-        status: "active" as const,
-      }));
+      const newQuestions = pendingImport.parsedQuestions.map((q) => {
+        // Serialize images to base64 for database storage
+        const contentImages = q.images.length > 0
+          ? JSON.stringify(
+              q.images.map((img) => ({
+                name: img.name,
+                data: arrayBufferToBase64(img.data),
+                mimeType: img.mimeType,
+                description: img.description,
+              }))
+            )
+          : null;
+
+        return {
+          student_id: currentStudent.id,
+          subject: pendingImport.subject,
+          source_type: "word_import" as const,
+          source_file: pendingImport.fileName,
+          number_in_source: q.number,
+          question_type: q.type,
+          chapter: q.chapter,
+          answer_date: q.answerDate,
+          content: q.content,
+          content_images: contentImages,
+          student_answer: null,
+          correct_answer: q.correctAnswer,
+          error_cause: null,
+          difficulty: null,
+          mastery_score: 0,
+          status: "active" as const,
+        };
+      });
 
       await addQuestions(newQuestions);
       setPendingImport(null);
@@ -353,10 +380,21 @@ export default function QuestionsPage() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="btn-secondary flex items-center gap-2 text-sm"
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-60"
           >
-            <FileUp size={14} />
-            {importing ? "导入中..." : "导入 Word"}
+            {importing ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                {importProgress
+                  ? `${importProgress.current}/${importProgress.total} ${importProgress.message}`
+                  : "导入中..."}
+              </>
+            ) : (
+              <>
+                <FileUp size={14} />
+                导入 Word
+              </>
+            )}
           </button>
           <input
             ref={fileInputRef}

@@ -19,7 +19,7 @@ class SqlJsAdapter {
   }
 
   // Signature matches Tauri plugin: T is the array type (e.g., Row[])
-  async select<T>(sql: string, bindValues?: unknown[]): Promise<T> {
+  async select<T = any[]>(sql: string, bindValues?: unknown[]): Promise<T> {
     const stmt = this.db.prepare(sql);
     if (bindValues && bindValues.length > 0) {
       stmt.bind(bindValues);
@@ -107,9 +107,10 @@ async function initBrowserDb(): Promise<SqlJsAdapter> {
 }
 
 export async function getDb(): Promise<TauriDatabase | SqlJsAdapter> {
-  if (dbInstance) return dbInstance;
-  if (!initPromise) {
-    initPromise = (async () => {
+  const w = window as any;
+  if (w.__DB_INSTANCE__) return w.__DB_INSTANCE__;
+  if (!w.__DB_INIT_PROMISE__) {
+    w.__DB_INIT_PROMISE__ = (async () => {
       if (isTauri()) {
         const { default: Database } = await import("@tauri-apps/plugin-sql");
         return await Database.load("sqlite:seeker.db");
@@ -117,14 +118,15 @@ export async function getDb(): Promise<TauriDatabase | SqlJsAdapter> {
       return await initBrowserDb();
     })();
   }
-  dbInstance = await initPromise;
-  return dbInstance;
+  w.__DB_INSTANCE__ = await w.__DB_INIT_PROMISE__;
+  return w.__DB_INSTANCE__;
 }
 
 export async function closeDb(): Promise<void> {
-  if (dbInstance) {
-    await dbInstance.close();
-    dbInstance = null;
-    initPromise = null;
+  const w = window as any;
+  if (w.__DB_INSTANCE__) {
+    await w.__DB_INSTANCE__.close();
+    w.__DB_INSTANCE__ = null;
+    w.__DB_INIT_PROMISE__ = null;
   }
 }

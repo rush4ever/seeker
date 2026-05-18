@@ -1,8 +1,7 @@
 import type { GradingResult } from "../types";
+import { resolveModel } from "./models";
 
 const OLLAMA_BASE = "http://localhost:11434";
-const VISION_MODEL = "llava:13b";
-const GRADING_MODEL = "qwen2.5:32b";
 
 export function buildOCRPrompt(): string {
   return `你是一位擅长识别手写文字的助手。请识别这张照片中的手写答案。
@@ -74,13 +73,14 @@ export function parseGradingResult(raw: string): GradingResult {
 
 export async function ocrAnswer(
   imageBase64: string,
-  model: string = VISION_MODEL
+  model?: string
 ): Promise<string> {
+  const m = model || (await resolveModel("vision"))?.model || "llava:13b";
   const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model,
+      model: m,
       messages: [
         {
           role: "user",
@@ -109,7 +109,7 @@ export async function gradeAnswer(
   questionType: "objective" | "subjective",
   model?: string
 ): Promise<GradingResult> {
-  const m = model || GRADING_MODEL;
+  const m = model || (await resolveModel("reasoning"))?.model || "qwen2.5:7b";
   const prompt = buildGradingPrompt(
     questionContent,
     studentAnswer,

@@ -1,5 +1,6 @@
 import mammoth from "mammoth";
 import JSZip from "jszip";
+import { parseImageContent } from "./vision";
 
 export interface ParsedQuestion {
   number: number;
@@ -8,7 +9,12 @@ export interface ParsedQuestion {
   answerDate: string;
   content: string;
   contentHtml: string;
-  images: { name: string; data: Uint8Array; mimeType: string }[];
+  images: {
+    name: string;
+    data: Uint8Array;
+    mimeType: string;
+    description: string;
+  }[];
   options?: string[];
   correctAnswer: string;
 }
@@ -16,6 +22,13 @@ export interface ParsedQuestion {
 export interface ParseResult {
   title: string;
   questions: ParsedQuestion[];
+}
+
+export interface ParseProgress {
+  phase: "structure" | "images";
+  current: number;
+  total: number;
+  message: string;
 }
 
 function parseOptions(contentHtml: string): string[] | undefined {
@@ -32,6 +45,7 @@ function parseOptions(contentHtml: string): string[] | undefined {
 
 function extractTextFromHtml(html: string): string {
   return html
+    .replace(/<img[^>]*>/g, " [图片] ")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -66,13 +80,122 @@ function extractAnswerFromHtml(html: string, questionNum: number): string {
   return answer;
 }
 
-export async function parseWordDocument(file: File): Promise<ParseResult> {
+async function parseImagesInHtml(
+  html: string,
+  questionNum: number,
+  onProgress?: (progress: ParseProgress) => void,
+  concurrency: number = 3
+): Promise<{
+  updatedHtml: string;
+  text: string;
+  images: ParsedQuestion["images"];
+}> {
+  const imgRegex = /<img[^>]*src=["'](data:image\/[^;]+;base64,[^"']+)["'][^>]*>/gi;
+  const matches: {
+    fullTag: string;
+    base64Src: string;
+    mimeType: string;
+  }[] = [];
+
+  let match;
+  while ((match = imgRegex.exec(html)) !== null) {
+    const base64Src = match[1];
+    const mimeMatch = base64Src.match(/data:([^;]+);base64,/);
+    matches.push({
+      fullTag: match[0],
+      base64Src,
+      mimeType: mimeMatch?.[1] || "image/png",
+    });
+  }
+
+  if (matches.length === 0) {
+    return {
+      updatedHtml: html,
+      text: extractTextFromHtml(html),
+      images: [],
+    };
+  }
+
+  const results: { description: string; data: Uint8Array }[] = [];
+
+  for (let i = 0; i < matches.length; i += concurrency) {
+    const batch = matches.slice(i, i + concurrency);
+    if (onProgress) {
+      onProgress({
+        phase: "images",
+        current: i,
+        total: matches.length,
+        message: `正在解析第 ${questionNum} 题的图片 (${i + 1}/${matches.length})...`,
+      });
+    }
+    const batchResults = await Promise.all(
+      batch.map(async (m) => {
+        const base64Content = m.base64Src.split(",")[1];
+        const data = Uint8Array.from(atob(base64Content), (c) =>
+          c.charCodeAt(0)
+        );
+        try {
+          const description = await parseImageContent(m.base64Src);
+          return { description, data };
+        } catch {
+          return { description: "[图片]", data };
+        }
+      })
+    );
+    results.push(...batchResults);
+  }
+
+  if (onProgress && matches.length > 0) {
+    onProgress({
+      phase: "images",
+      current: matches.length,
+      total: matches.length,
+      message: `第 ${questionNum} 题图片解析完成`,
+    });
+  }
+
+  let updatedHtml = html;
+  const images: ParsedQuestion["images"] = [];
+
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const r = results[i];
+    const ext = m.mimeType.split("/")[1] || "png";
+    const name = `q${questionNum}_img${i + 1}.${ext}`;
+
+    updatedHtml = updatedHtml.replace(
+      m.fullTag,
+      `<span class="image-desc" data-image="${name}">[图: ${r.description}]</span>`
+    );
+
+    images.push({
+      name,
+      data: r.data,
+      mimeType: m.mimeType,
+      description: r.description,
+    });
+  }
+
+  const text = updatedHtml
+    .replace(/<span class="image-desc"[^>]*>(.*?)<\/span>/g, " $1 ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return { updatedHtml, text, images };
+}
+
+export async function parseWordDocument(
+  file: File,
+  onProgress?: (progress: ParseProgress) => void
+): Promise<ParseResult> {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = new Uint8Array(arrayBuffer);
 
-  // Extract images using JSZip
+  // Extract images using JSZip (fallback for any images mammoth might miss)
   const zip = await JSZip.loadAsync(buffer);
-  const images: Map<string, { data: Uint8Array; mimeType: string }> = new Map();
+  const imagesFromZip: Map<string, { data: Uint8Array; mimeType: string }> =
+    new Map();
 
   for (const [path, zipEntry] of Object.entries(zip.files)) {
     if (path.startsWith("word/media/")) {
@@ -86,11 +209,11 @@ export async function parseWordDocument(file: File): Promise<ParseResult> {
           ? "image/gif"
           : "image/png";
       const data = await zipEntry.async("uint8array");
-      images.set(path.replace("word/media/", ""), { data, mimeType });
+      imagesFromZip.set(path.replace("word/media/", ""), { data, mimeType });
     }
   }
 
-  // Convert to HTML using mammoth
+  // Convert to HTML using mammoth (default converts images to inline data URIs)
   const result = await mammoth.convertToHtml({ arrayBuffer });
   const html = result.value;
 
@@ -153,7 +276,20 @@ export async function parseWordDocument(file: File): Promise<ParseResult> {
       .replace(/\s+/g, " ")
       .trim();
 
-    const content = extractTextFromHtml(contentHtml);
+    // Parse images in the content using vision model
+    if (onProgress) {
+      onProgress({
+        phase: "structure",
+        current: i + 1,
+        total: questionInfos.length,
+        message: `正在解析第 ${info.number} 题...`,
+      });
+    }
+    const { updatedHtml, text, images } = await parseImagesInHtml(
+      contentHtml,
+      info.number,
+      onProgress
+    );
 
     // Extract answer from answer section
     const correctAnswer = extractAnswerFromHtml(answerHtml, info.number);
@@ -163,11 +299,11 @@ export async function parseWordDocument(file: File): Promise<ParseResult> {
       type: info.type,
       chapter: info.chapter,
       answerDate: info.answerDate,
-      content: content,
-      contentHtml,
-      images: [], // TODO: implement image extraction
+      content: text,
+      contentHtml: updatedHtml,
+      images,
       options:
-        info.type === "objective" ? parseOptions(contentHtml) : undefined,
+        info.type === "objective" ? parseOptions(updatedHtml) : undefined,
       correctAnswer,
     });
   }

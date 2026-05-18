@@ -1,6 +1,6 @@
+import { resolveModel } from "./models";
+
 const OLLAMA_BASE = "http://localhost:11434";
-const DEFAULT_MODEL = "qwen2.5:32b";
-const FALLBACK_MODEL = "qwen2.5:7b";
 
 export interface OllamaResponse {
   model: string;
@@ -25,27 +25,15 @@ export async function checkOllamaStatus(): Promise<{
   model?: string;
   fallbackAvailable?: boolean;
 }> {
-  try {
-    const res = await fetch(`${OLLAMA_BASE}/api/tags`, { method: "GET" });
-    if (!res.ok) return { available: false };
-
-    const data = (await res.json()) as { models: OllamaTag[] };
-    const models = data.models.map((m) => m.name);
-
-    if (models.includes(DEFAULT_MODEL)) {
-      return { available: true, model: DEFAULT_MODEL };
-    }
-    if (models.includes(FALLBACK_MODEL)) {
-      return {
-        available: true,
-        model: FALLBACK_MODEL,
-        fallbackAvailable: true,
-      };
-    }
-    return { available: false };
-  } catch {
-    return { available: false };
+  const availability = await resolveModel("reasoning");
+  if (availability) {
+    return {
+      available: true,
+      model: availability.model,
+      fallbackAvailable: availability.isFallback,
+    };
   }
+  return { available: false };
 }
 
 export async function analyzeQuestion(
@@ -53,7 +41,7 @@ export async function analyzeQuestion(
   knowledgeNodes: { id: number; name: string }[],
   model?: string
 ): Promise<AnalysisResult> {
-  const m = model || DEFAULT_MODEL;
+  const m = model || (await resolveModel("reasoning"))?.model || "qwen2.5:7b";
 
   const prompt = buildAnalysisPrompt(questionContent, knowledgeNodes);
 

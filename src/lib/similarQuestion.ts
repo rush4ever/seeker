@@ -1,5 +1,6 @@
+import { resolveModel } from "./models";
+
 const OLLAMA_BASE = "http://localhost:11434";
-const DEFAULT_MODEL = "qwen2.5:32b";
 
 export interface SimilarQuestion {
   content: string;
@@ -59,7 +60,7 @@ export async function generateSimilarQuestions(
   count: number,
   model?: string
 ): Promise<SimilarQuestion[]> {
-  const m = model || DEFAULT_MODEL;
+  const m = model || (await resolveModel("reasoning"))?.model || "qwen2.5:7b";
   const prompt = buildSimilarQuestionPrompt(originalQuestion, knowledgePoints, count);
 
   const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
