@@ -43,14 +43,6 @@ function parseOptions(contentHtml: string): string[] | undefined {
   return options.length > 0 ? options : undefined;
 }
 
-function extractTextFromHtml(html: string): string {
-  return html
-    .replace(/<img[^>]*>/g, " [图片] ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 /**
  * Extract answer from the next <p> element after the answer header.
  * Handles text, em tags, and images.
@@ -95,85 +87,102 @@ async function parseImagesInHtml(
     fullTag: string;
     base64Src: string;
     mimeType: string;
+    alt: string;
   }[] = [];
 
   let match;
   while ((match = imgRegex.exec(html)) !== null) {
     const base64Src = match[1];
     const mimeMatch = base64Src.match(/data:([^;]+);base64,/);
+    const altMatch = match[0].match(/alt="([^"]*)"/);
+    const alt = altMatch ? altMatch[1] : "";
     matches.push({
       fullTag: match[0],
       base64Src,
       mimeType: mimeMatch?.[1] || "image/png",
+      alt,
     });
   }
 
-  if (matches.length === 0) {
-    return {
-      updatedHtml: html,
-      text: extractTextFromHtml(html),
-      images: [],
-    };
-  }
+  // Filter out decorative images: labels, decorations, and tiny fragments
+  const SKIP_ALTS = ["原错题", "左装饰", "右装饰", "装饰"];
+  const MIN_SRC_LEN = 800; // base64 data URI length threshold
+  const contentMatches = matches.filter((m) => {
+    if (SKIP_ALTS.includes(m.alt)) return false;
+    if (m.base64Src.length < MIN_SRC_LEN) return false;
+    return true;
+  });
 
-  const results: { description: string; data: Uint8Array }[] = [];
+  // Parse content images with vision model
+  const parsedImages: Map<string, { description: string; data: Uint8Array }> =
+    new Map();
 
-  for (let i = 0; i < matches.length; i += concurrency) {
-    const batch = matches.slice(i, i + concurrency);
+  if (contentMatches.length > 0) {
+    for (let i = 0; i < contentMatches.length; i += concurrency) {
+      const batch = contentMatches.slice(i, i + concurrency);
+      if (onProgress) {
+        onProgress({
+          phase: "images",
+          current: i,
+          total: contentMatches.length,
+          message: `正在解析第 ${questionNum} 题的图片 (${i + 1}/${contentMatches.length})...`,
+        });
+      }
+      const batchResults = await Promise.all(
+        batch.map(async (m) => {
+          const base64Content = m.base64Src.split(",")[1];
+          const data = Uint8Array.from(atob(base64Content), (c) =>
+            c.charCodeAt(0)
+          );
+          try {
+            const description = await parseImageContent(m.base64Src);
+            return { key: m.fullTag, description, data };
+          } catch {
+            return { key: m.fullTag, description: "[图片]", data };
+          }
+        })
+      );
+      for (const r of batchResults) {
+        parsedImages.set(r.key, { description: r.description, data: r.data });
+      }
+    }
+
     if (onProgress) {
       onProgress({
         phase: "images",
-        current: i,
-        total: matches.length,
-        message: `正在解析第 ${questionNum} 题的图片 (${i + 1}/${matches.length})...`,
+        current: contentMatches.length,
+        total: contentMatches.length,
+        message: `第 ${questionNum} 题图片解析完成`,
       });
     }
-    const batchResults = await Promise.all(
-      batch.map(async (m) => {
-        const base64Content = m.base64Src.split(",")[1];
-        const data = Uint8Array.from(atob(base64Content), (c) =>
-          c.charCodeAt(0)
-        );
-        try {
-          const description = await parseImageContent(m.base64Src);
-          return { description, data };
-        } catch {
-          return { description: "[图片]", data };
-        }
-      })
-    );
-    results.push(...batchResults);
   }
 
-  if (onProgress && matches.length > 0) {
-    onProgress({
-      phase: "images",
-      current: matches.length,
-      total: matches.length,
-      message: `第 ${questionNum} 题图片解析完成`,
-    });
-  }
-
+  // Replace all images in HTML
   let updatedHtml = html;
   const images: ParsedQuestion["images"] = [];
+  let imgIndex = 0;
 
-  for (let i = 0; i < matches.length; i++) {
-    const m = matches[i];
-    const r = results[i];
-    const ext = m.mimeType.split("/")[1] || "png";
-    const name = `q${questionNum}_img${i + 1}.${ext}`;
-
-    updatedHtml = updatedHtml.replace(
-      m.fullTag,
-      `<span class="image-desc" data-image="${name}">[图: ${r.description}]</span>`
-    );
-
-    images.push({
-      name,
-      data: r.data,
-      mimeType: m.mimeType,
-      description: r.description,
-    });
+  for (const m of matches) {
+    const parsed = parsedImages.get(m.fullTag);
+    if (parsed) {
+      // Content image: replace with parsed description
+      imgIndex++;
+      const ext = m.mimeType.split("/")[1] || "png";
+      const name = `q${questionNum}_img${imgIndex}.${ext}`;
+      updatedHtml = updatedHtml.replace(
+        m.fullTag,
+        `<span class="image-desc" data-image="${name}">[图: ${parsed.description}]</span>`
+      );
+      images.push({
+        name,
+        data: parsed.data,
+        mimeType: m.mimeType,
+        description: parsed.description,
+      });
+    } else {
+      // Skipped image (decorative/fragment): replace with simple placeholder
+      updatedHtml = updatedHtml.replace(m.fullTag, " [图片] ");
+    }
   }
 
   const text = updatedHtml
@@ -217,8 +226,8 @@ export async function parseWordDocument(
   const result = await mammoth.convertToHtml({ arrayBuffer });
   const html = result.value;
 
-  // Extract title (first text before any table)
-  const titleMatch = html.match(/([^<]+错题集[^<]+)/);
+  // Extract title (text between HTML tags containing 错题集)
+  const titleMatch = html.match(/>\s*([^<]*错题集[^<]*)\s*</);
   const title = titleMatch ? titleMatch[1].trim() : file.name;
 
   // Split into question section and answer section
