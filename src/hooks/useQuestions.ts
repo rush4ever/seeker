@@ -36,9 +36,9 @@ export function useQuestions(studentId?: number) {
         await db.execute(
           `INSERT INTO questions (
             student_id, subject, source_type, source_file, number_in_source,
-            question_type, chapter, answer_date, content, content_images,
+            question_type, chapter, answer_date, content, content_html, content_images,
             correct_answer, error_cause, difficulty, mastery_score, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
           [
             q.student_id,
             q.subject,
@@ -49,6 +49,7 @@ export function useQuestions(studentId?: number) {
             q.chapter,
             q.answer_date,
             q.content,
+            q.content_html ?? null,
             q.content_images,
             q.correct_answer,
             q.error_cause,

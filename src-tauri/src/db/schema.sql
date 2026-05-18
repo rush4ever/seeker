@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS questions (
   chapter TEXT,
   answer_date TEXT,
   content TEXT NOT NULL,
+  content_html TEXT,
   content_images TEXT,
   student_answer TEXT,
   correct_answer TEXT,

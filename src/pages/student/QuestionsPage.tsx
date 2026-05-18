@@ -27,7 +27,6 @@ import {
   X,
 } from "lucide-react";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
-import { MathContent } from "../../components/common/MathContent";
 
 function subjectLabel(s: Subject): string {
   return s === "math" ? "数学" : "物理";
@@ -150,6 +149,7 @@ export default function QuestionsPage() {
           chapter: q.chapter,
           answer_date: q.answerDate,
           content: q.content,
+          content_html: q.contentHtml,
           content_images: contentImages,
           student_answer: null,
           correct_answer: q.correctAnswer,
@@ -621,9 +621,8 @@ function QuestionCard({
           <div
             className="text-gray-800 line-clamp-2 cursor-pointer"
             onClick={() => setShowDetail(true)}
-          >
-            <MathContent text={question.content} />
-          </div>
+            dangerouslySetInnerHTML={{ __html: question.content_html ?? "" }}
+          />
 
           {/* Answer & Mastery */}
           {question.correct_answer && (
@@ -752,9 +751,10 @@ function QuestionCard({
             {/* Content */}
             <div className="p-4 space-y-4">
               {/* Question text */}
-              <div className="text-gray-800 text-base leading-relaxed">
-                <MathContent text={question.content} />
-              </div>
+              <div
+                className="text-gray-800 text-base leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: question.content_html ?? "" }}
+              />
 
               {/* Original images */}
               {contentImages.length > 0 && (
@@ -781,9 +781,7 @@ function QuestionCard({
               {question.correct_answer && (
                 <div className="bg-green-50 rounded-lg p-3">
                   <p className="text-sm font-medium text-green-700">参考答案</p>
-                  <p className="text-green-600 mt-1">
-                    <MathContent text={question.correct_answer} />
-                  </p>
+                  <p className="text-green-600 mt-1">{question.correct_answer}</p>
                 </div>
               )}
 

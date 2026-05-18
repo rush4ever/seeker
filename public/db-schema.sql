@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS questions (
   chapter TEXT,
   answer_date TEXT,
   content TEXT NOT NULL,
+  content_html TEXT,
   content_images TEXT,
   student_answer TEXT,
   correct_answer TEXT,
@@ -89,6 +90,9 @@ CREATE TABLE IF NOT EXISTS review_schedule (
   completed_at TEXT,
   priority REAL NOT NULL DEFAULT 0
 );
+
+-- Migration: add content_html if not exists (safe to re-run)
+ALTER TABLE questions ADD COLUMN content_html TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_questions_student ON questions(student_id);
 CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(status);

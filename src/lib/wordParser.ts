@@ -1,5 +1,6 @@
 import mammoth from "mammoth";
 import JSZip from "jszip";
+import katex from "katex";
 import { parseImageContent } from "./vision";
 
 export interface ParsedQuestion {
@@ -104,28 +105,32 @@ async function parseImagesInHtml(
     });
   }
 
-  // Filter out decorative images: labels, decorations, and tiny fragments
+  // Decorative images to skip entirely
   const SKIP_ALTS = ["原错题", "左装饰", "右装饰", "装饰"];
-  const MIN_SRC_LEN = 800; // base64 data URI length threshold
-  const contentMatches = matches.filter((m) => {
-    if (SKIP_ALTS.includes(m.alt)) return false;
-    if (m.base64Src.length < MIN_SRC_LEN) return false;
-    return true;
-  });
+  // Vision model reliably parses images >= this threshold
+  const VISION_THRESHOLD = 800;
 
-  // Parse content images with vision model
+  // Categorize images
+  const visionMatches = matches.filter(
+    (m) => !SKIP_ALTS.includes(m.alt) && m.base64Src.length >= VISION_THRESHOLD
+  );
+  const inlineMatches = matches.filter(
+    (m) => !SKIP_ALTS.includes(m.alt) && m.base64Src.length < VISION_THRESHOLD
+  );
+
+  // Parse large images with vision model
   const parsedImages: Map<string, { description: string; data: Uint8Array }> =
     new Map();
 
-  if (contentMatches.length > 0) {
-    for (let i = 0; i < contentMatches.length; i += concurrency) {
-      const batch = contentMatches.slice(i, i + concurrency);
+  if (visionMatches.length > 0) {
+    for (let i = 0; i < visionMatches.length; i += concurrency) {
+      const batch = visionMatches.slice(i, i + concurrency);
       if (onProgress) {
         onProgress({
           phase: "images",
           current: i,
-          total: contentMatches.length,
-          message: `正在解析第 ${questionNum} 题的图片 (${i + 1}/${contentMatches.length})...`,
+          total: visionMatches.length,
+          message: `正在解析第 ${questionNum} 题的图片 (${i + 1}/${visionMatches.length})...`,
         });
       }
       const batchResults = await Promise.all(
@@ -138,7 +143,7 @@ async function parseImagesInHtml(
             const description = await parseImageContent(m.base64Src);
             return { key: m.fullTag, description, data };
           } catch {
-            return { key: m.fullTag, description: "[图片]", data };
+            return { key: m.fullTag, description: "", data };
           }
         })
       );
@@ -150,8 +155,8 @@ async function parseImagesInHtml(
     if (onProgress) {
       onProgress({
         phase: "images",
-        current: contentMatches.length,
-        total: contentMatches.length,
+        current: visionMatches.length,
+        total: visionMatches.length,
         message: `第 ${questionNum} 题图片解析完成`,
       });
     }
@@ -164,14 +169,17 @@ async function parseImagesInHtml(
 
   for (const m of matches) {
     const parsed = parsedImages.get(m.fullTag);
-    if (parsed) {
-      // Content image: replace with parsed description
+    if (parsed && parsed.description) {
+      // Large image with vision description: pre-render LaTeX inline
       imgIndex++;
       const ext = m.mimeType.split("/")[1] || "png";
       const name = `q${questionNum}_img${imgIndex}.${ext}`;
+
+      // Render description (may contain LaTeX) to HTML
+      const renderedDesc = renderInlineMath(parsed.description);
       updatedHtml = updatedHtml.replace(
         m.fullTag,
-        `<span class="image-desc" data-image="${name}">[图: ${parsed.description}]</span>`
+        `<span class="image-desc" data-image="${name}">${renderedDesc}</span>`
       );
       images.push({
         name,
@@ -179,19 +187,54 @@ async function parseImagesInHtml(
         mimeType: m.mimeType,
         description: parsed.description,
       });
+    } else if (inlineMatches.some((im) => im.fullTag === m.fullTag)) {
+      // Small image: keep as inline img tag for direct rendering
+      imgIndex++;
+      const ext = m.mimeType.split("/")[1] || "png";
+      const name = `q${questionNum}_img${imgIndex}.${ext}`;
+      updatedHtml = updatedHtml.replace(
+        m.fullTag,
+        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" style="height:1.3em;display:inline-block;vertical-align:middle;border-radius:2px;" />`
+      );
+      const base64Content = m.base64Src.split(",")[1];
+      const data = Uint8Array.from(atob(base64Content), (c) =>
+        c.charCodeAt(0)
+      );
+      images.push({
+        name,
+        data,
+        mimeType: m.mimeType,
+        description: "",
+      });
     } else {
-      // Skipped image (decorative/fragment): replace with simple placeholder
-      updatedHtml = updatedHtml.replace(m.fullTag, " [图片] ");
+      // Decorative image: remove
+      updatedHtml = updatedHtml.replace(m.fullTag, "");
     }
   }
 
   const text = updatedHtml
+    .replace(/<img[^>]*class="inline-formula"[^>]*>/g, " [图] ")
     .replace(/<span class="image-desc"[^>]*>(.*?)<\/span>/g, " $1 ")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
   return { updatedHtml, text, images };
+}
+
+function renderInlineMath(text: string): string {
+  // Replace $...$ with KaTeX-rendered HTML
+  return text.replace(/\$([^$]+)\$/g, (_, latex) => {
+    try {
+      return katex.renderToString(latex.trim(), {
+        displayMode: false,
+        throwOnError: false,
+        strict: false,
+      });
+    } catch {
+      return `$${latex}$`;
+    }
+  });
 }
 
 export async function parseWordDocument(
