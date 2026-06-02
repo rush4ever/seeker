@@ -125,4 +125,26 @@ test.describe("Word 导入流程", () => {
     // Should eventually show "12/12" or similar completion
     await expect(page.locator('h3:has-text("确认导入")')).toBeVisible({ timeout: 120000 });
   });
+
+  test("4 个无答题时间字段的子题应拆成 4 段而非塌成 1 段", async ({ page }) => {
+    // Regression test for the bug the user reported: splitQuestions
+    // used a single ultra-strict regex that required 题号+(客观|主观)题
+    // +章节+答题时间:YYYY-MM-DD all in one match. Sub-questions missing
+    // 答题时间 collapsed into the previous question's body. Now we
+    // use a multi-strategy splitter. This E2E exercises it via the
+    // exported splitQuestions function — no real docx required.
+    const out = await page.evaluate(async () => {
+      const mod = await import("/src/lib/wordParser.ts");
+      const html = `
+        <p>1. 化简 $\\frac{1}{4-a}$</p>
+        <p>2. 化简 $\\frac{9-2a}{a-4}$</p>
+        <p>3. 化简 $\\frac{1}{a-4}$</p>
+        <p>4. 化简 $\\frac{2a-9}{a-4}$</p>
+      `;
+      return mod.splitQuestions(html);
+    });
+    expect(out).toHaveLength(4);
+    expect(out[0]).toContain("$\\frac{1}{4-a}$");
+    expect(out[3]).toContain("$\\frac{2a-9}{a-4}$");
+  });
 });
