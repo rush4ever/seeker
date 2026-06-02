@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useApp } from "../../context/AppContext";
+import { getDb } from "../../lib/db";
 import { ocrAnswer, gradeAnswer } from "../../lib/grading";
 import type { GradingItem, GeneratedQuestion, GradingResult } from "../../types";
 import { invoke } from "@tauri-apps/api/core";
@@ -36,6 +37,7 @@ export default function GradingPage() {
   const [items, setItems] = useState<GradingItem[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [processing, setProcessing] = useState(false);
+  const [sessionId, setSessionId] = useState<number | null>(null);
 
   // Initialize items from questions
   useEffect(() => {
@@ -48,9 +50,36 @@ export default function GradingPage() {
     );
   }, []);
 
+  // Create a practice_sessions row on mount / student change so the
+  // photo + answer persistence have a real session id to reference.
+  useEffect(() => {
+    if (!currentStudent) {
+      setSessionId(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const db = await getDb();
+        const result = await db.execute(
+          "INSERT INTO practice_sessions (student_id, session_type) VALUES (?, ?)",
+          [currentStudent.id, "ad_hoc"]
+        );
+        if (!cancelled && result.lastInsertId != null) {
+          setSessionId(result.lastInsertId);
+        }
+      } catch (err) {
+        console.error("Failed to create practice session:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStudent]);
+
   const handlePhotoSelected = useCallback(
     async (base64: string) => {
-      if (!currentStudent) return;
+      if (!currentStudent || sessionId === null) return;
 
       const item = items[activeIndex];
       if (!item) return;
@@ -68,7 +97,7 @@ export default function GradingPage() {
         // Save photo via Tauri
         const photoPath = (await invoke("save_answer_photo", {
           studentId: currentStudent.id,
-          sessionId: 1, // TODO: use real session id
+          sessionId,
           questionIndex: item.index,
           base64Image: base64,
         })) as string;
@@ -115,11 +144,36 @@ export default function GradingPage() {
         setProcessing(false);
       }
     },
-    [currentStudent, items, activeIndex]
+    [currentStudent, items, activeIndex, sessionId]
   );
 
   const handleConfirm = useCallback(
     async (finalResult: GradingResult) => {
+      const item = items[activeIndex];
+      if (!item || sessionId === null) return;
+
+      // Persist the confirmed answer to practice_answers.
+      try {
+        const db = await getDb();
+        await db.execute(
+          `INSERT INTO practice_answers
+             (session_id, generated_question_index,
+              answer_image_path, ocr_result,
+              is_correct, self_assessment, graded_at)
+           VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+          [
+            sessionId,
+            item.index,
+            item.photoPath ?? null,
+            item.ocrResult?.text ?? null,
+            finalResult.isCorrect,
+            finalResult.explanation || null,
+          ]
+        );
+      } catch (err) {
+        console.error("Failed to save practice answer:", err);
+      }
+
       setItems((prev) =>
         prev.map((it, i) =>
           i === activeIndex
@@ -127,10 +181,8 @@ export default function GradingPage() {
             : it
         )
       );
-
-      // TODO: Save to database (practice_answers table) when session flow is connected
     },
-    [activeIndex]
+    [activeIndex, items, sessionId]
   );
 
   const handleRetry = useCallback(() => {
@@ -211,10 +263,16 @@ export default function GradingPage() {
                 )}
 
               {activeItem.status === "pending" && (
-                <PhotoUploader
-                  onPhotoSelected={handlePhotoSelected}
-                  disabled={processing}
-                />
+                sessionId === null ? (
+                  <div className="text-center text-gray-400 py-8 text-sm">
+                    准备批改会话中…
+                  </div>
+                ) : (
+                  <PhotoUploader
+                    onPhotoSelected={handlePhotoSelected}
+                    disabled={processing}
+                  />
+                )
               )}
 
               {(activeItem.status === "uploaded" ||
