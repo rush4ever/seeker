@@ -17,7 +17,8 @@ export interface AnalysisResult {
   knowledgePoints: string[];
   errorCause: "concept" | "calculation" | "careless" | "misread" | "unknown";
   difficulty: "easy" | "medium" | "hard";
-  explanation: string;
+  solutionApproach: string;
+  solutionSteps: string[];
 }
 
 export async function checkOllamaStatus(): Promise<{
@@ -68,7 +69,10 @@ export async function analyzeQuestion(
       knowledgePoints: parsed.knowledgePoints || [],
       errorCause: parsed.errorCause || "unknown",
       difficulty: parsed.difficulty || "medium",
-      explanation: parsed.explanation || "",
+      solutionApproach: parsed.solutionApproach || "",
+      solutionSteps: Array.isArray(parsed.solutionSteps)
+        ? parsed.solutionSteps
+        : [],
     };
   } catch {
     // If JSON parse fails, try to extract from raw text
@@ -87,7 +91,8 @@ function buildAnalysisPrompt(
 1. 从预置知识树中选择最匹配的知识点（可复选）
 2. 判断错因类型：concept(概念不清) / calculation(计算错误) / careless(粗心) / misread(审题失误) / unknown(完全不会)
 3. 评估难度：easy / medium / hard
-4. 给出简要分析说明
+4. 解题思路：用 2-4 句中文说明这类题的一般解法/切入点
+5. 解题步骤：拆成 3-6 步，每步是简短的中文描述（不要 LaTeX，用文字表达，例如"通分"、"分子分母同时乘以 2"）
 
 预置知识树：
 ${nodeList}
@@ -95,7 +100,14 @@ ${nodeList}
 错题内容：
 ${questionContent}
 
-请以 JSON 格式返回，包含字段：knowledgePoints(字符串数组), errorCause, difficulty, explanation`;
+请以 JSON 格式返回：
+{
+  "knowledgePoints": ["..."],
+  "errorCause": "concept|calculation|careless|misread|unknown",
+  "difficulty": "easy|medium|hard",
+  "solutionApproach": "...",
+  "solutionSteps": ["步骤 1", "步骤 2", "..."]
+}`;
 }
 
 function extractFromRawText(text: string): AnalysisResult {
@@ -108,7 +120,10 @@ function extractFromRawText(text: string): AnalysisResult {
         knowledgePoints: parsed.knowledgePoints || [],
         errorCause: parsed.errorCause || "unknown",
         difficulty: parsed.difficulty || "medium",
-        explanation: parsed.explanation || "",
+        solutionApproach: parsed.solutionApproach || "",
+        solutionSteps: Array.isArray(parsed.solutionSteps)
+          ? parsed.solutionSteps
+          : [],
       };
     } catch {
       // fall through
@@ -120,6 +135,7 @@ function extractFromRawText(text: string): AnalysisResult {
     knowledgePoints: [],
     errorCause: "unknown",
     difficulty: "medium",
-    explanation: text.slice(0, 200),
+    solutionApproach: text.slice(0, 200),
+    solutionSteps: [],
   };
 }
