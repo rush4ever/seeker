@@ -283,38 +283,22 @@ export async function parseWordDocument(
   // Parse questions
   const questions: ParsedQuestion[] = [];
 
-  // Find all question headers
-  const questionPattern =
-    /(\d+)\s*[（(](客观题|主观题)[)）]\s*([^<]+).*?答题时间[：:]\s*(\d{4}-\d{2}-\d{2})/g;
-  let match;
-  const questionInfos: {
-    number: number;
-    type: "objective" | "subjective";
-    chapter: string;
-    answerDate: string;
-    index: number;
-  }[] = [];
-
-  while ((match = questionPattern.exec(questionHtml)) !== null) {
-    questionInfos.push({
-      number: parseInt(match[1], 10),
-      type: match[2] === "客观题" ? "objective" : "subjective",
-      chapter: match[3].trim(),
-      answerDate: match[4],
-      index: match.index,
-    });
-  }
+  // Split the question HTML into per-question segments. The previous
+  // implementation used a single ultra-strict regex (required 题号 +
+  // (客观|主观)题 + 章节 + 答题时间:YYYY-MM-DD all in one match). Real
+  // docs often skip 答题时间, or use a numbered list, or a plain <h1>
+  // header — and a single un-matched sub-question collapsed everything
+  // into one row. We now try multiple splitters and fall back to the
+  // whole HTML as one question if nothing matches.
+  const segments = splitQuestions(questionHtml);
+  const totalCount = segments.length;
 
   // Extract content for each question
-  for (let i = 0; i < questionInfos.length; i++) {
-    const info = questionInfos[i];
-    const startIdx = info.index;
-    const endIdx =
-      i + 1 < questionInfos.length
-        ? questionInfos[i + 1].index
-        : questionHtml.length;
+  for (let i = 0; i < totalCount; i++) {
+    const contentHtmlRaw = segments[i];
+    const meta = extractQuestionMeta(contentHtmlRaw, i + 1);
 
-    let contentHtml = questionHtml.substring(startIdx, endIdx);
+    let contentHtml = contentHtmlRaw;
 
     // Remove the header part (up to and including the table)
     const tableEnd = contentHtml.indexOf("</table>");
@@ -333,32 +317,166 @@ export async function parseWordDocument(
       onProgress({
         phase: "structure",
         current: i + 1,
-        total: questionInfos.length,
-        message: `正在解析第 ${info.number} 题...`,
+        total: totalCount,
+        message: `正在解析第 ${meta.number} 题...`,
       });
     }
     const { updatedHtml, text, images } = await parseImagesInHtml(
       contentHtml,
-      info.number,
+      meta.number,
       onProgress
     );
 
     // Extract answer from answer section
-    const correctAnswer = extractAnswerFromHtml(answerHtml, info.number);
+    const correctAnswer = extractAnswerFromHtml(answerHtml, meta.number);
 
     questions.push({
-      number: info.number,
-      type: info.type,
-      chapter: info.chapter,
-      answerDate: info.answerDate,
+      number: meta.number,
+      type: meta.type,
+      chapter: meta.chapter,
+      answerDate: meta.answerDate,
       content: text,
       contentHtml: updatedHtml,
       images,
       options:
-        info.type === "objective" ? parseOptions(updatedHtml) : undefined,
+        meta.type === "objective" ? parseOptions(updatedHtml) : undefined,
       correctAnswer,
     });
   }
 
   return { title, questions };
+}
+
+/**
+ * Split the question-region HTML into per-question segments.
+ *
+ * The previous implementation used a single ultra-strict regex that
+ * required the full header (`N (客观题|主观题) <chapter> 答题时间:YYYY-MM-DD`)
+ * to appear in one match. Real Word docs frequently skip the
+ * 答题时间 field, or use a numbered list, or a plain `<h1>`/`<h2>`
+ * header — and a single un-matched sub-question collapsed everything
+ * between two valid headers into one row.
+ *
+ * We now try a chain of strategies and use the first that yields more
+ * than one segment. If everything fails, return the whole HTML as a
+ * single segment so the user can at least see / manually fix the
+ * import.
+ */
+export function splitQuestions(html: string): string[] {
+  const strategies: Array<(h: string) => string[] | null> = [
+    splitByHeaderTags,
+    splitByNumberedLine,
+    splitByTypeTag,
+  ];
+  for (const fn of strategies) {
+    const out = fn(html);
+    if (out && out.length > 1) return out;
+  }
+  return [html];
+}
+
+/** Strategy 1: split at `<h1>…</h1>` / `<h2>…</h2>` boundaries. */
+function splitByHeaderTags(html: string): string[] | null {
+  // Look for the first <h1>/<h2>; everything before it is dropped
+  // (preamble / table-of-contents), then split on subsequent <h1>/<h2>.
+  const headerRe = /<h[12][^>]*>.*?<\/h[12]>/gi;
+  const matches: { index: number; tag: string }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = headerRe.exec(html)) !== null) {
+    matches.push({ index: m.index, tag: m[0] });
+  }
+  if (matches.length < 2) return null;
+  const out: string[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index;
+    const end = i + 1 < matches.length ? matches[i + 1].index : html.length;
+    out.push(html.substring(start, end));
+  }
+  return out;
+}
+
+/** Strategy 2: split at numbered lines like `1. xxx` / `1、xxx`. */
+function splitByNumberedLine(html: string): string[] | null {
+  // Match the start of an element containing a leading "N." or "N、"
+  // — typically a <p> or <li>. We anchor on the opening tag so the
+  // boundary is the start of the new question, not the end of the old.
+  const re = /<(?:p|li|div)[^>]*>\s*\d+\s*[、.．]\s*[^<]{0,80}/gi;
+  const indices: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    indices.push(m.index);
+  }
+  if (indices.length < 2) return null;
+  const out: string[] = [];
+  for (let i = 0; i < indices.length; i++) {
+    const start = indices[i];
+    const end = i + 1 < indices.length ? indices[i + 1] : html.length;
+    out.push(html.substring(start, end));
+  }
+  return out;
+}
+
+/** Strategy 3: split at `<strong>客观题</strong>` /
+ *  `<strong>主观题</strong>` blocks. */
+function splitByTypeTag(html: string): string[] | null {
+  const re = /<strong[^>]*>\s*(?:客观题|主观题)\s*<\/strong>/gi;
+  const indices: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    indices.push(m.index);
+  }
+  if (indices.length < 2) return null;
+  const out: string[] = [];
+  for (let i = 0; i < indices.length; i++) {
+    const start = indices[i];
+    const end = i + 1 < indices.length ? indices[i + 1] : html.length;
+    out.push(html.substring(start, end));
+  }
+  return out;
+}
+
+/**
+ * Best-effort metadata extraction for one question segment.
+ *
+ * Tries the original strict header pattern first; if it doesn't match,
+ * falls back to defaults derived from the segment index.
+ */
+function extractQuestionMeta(
+  segment: string,
+  indexFallback: number,
+): {
+  number: number;
+  type: "objective" | "subjective";
+  chapter: string;
+  answerDate: string;
+} {
+  const strictRe =
+    /(\d+)\s*[（(](客观题|主观题)[)）]\s*([^<]+).*?答题时间[：:]\s*(\d{4}-\d{2}-\d{2})/;
+  const m = segment.match(strictRe);
+  if (m) {
+    return {
+      number: parseInt(m[1], 10),
+      type: m[2] === "客观题" ? "objective" : "subjective",
+      chapter: m[3].trim(),
+      answerDate: m[4],
+    };
+  }
+  // Type from <strong> tag if present, else default to objective.
+  const typeMatch = segment.match(/<strong[^>]*>\s*(客观题|主观题)\s*<\/strong>/);
+  const type: "objective" | "subjective" = typeMatch
+    ? typeMatch[1] === "客观题"
+      ? "objective"
+      : "subjective"
+    : "objective";
+  // Number from leading "N." / "N、" if present, else fallback to index.
+  const numMatch = segment.match(/^\s*\d+\s*[、.．]/);
+  const number = numMatch
+    ? parseInt(numMatch[0].match(/\d+/)?.[0] ?? `${indexFallback}`, 10)
+    : indexFallback;
+  return {
+    number,
+    type,
+    chapter: "",
+    answerDate: new Date().toISOString().slice(0, 10),
+  };
 }
