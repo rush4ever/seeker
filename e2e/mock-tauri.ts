@@ -31,6 +31,13 @@ const defaultHandlers: MockInvokeHandlers = {
     console.log("[MOCK] save_answer_photo:", { studentId, sessionId, questionIndex });
     return `/tmp/answers/${studentId}/${sessionId}/${questionIndex}.jpg`;
   },
+  save_uploaded_photo: ({ studentId, filename }: {
+    studentId: number;
+    filename: string;
+  }) => {
+    console.log("[MOCK] save_uploaded_photo:", { studentId, filename });
+    return `/tmp/photos/${studentId}/mock-${filename}`;
+  },
 };
 
 /**

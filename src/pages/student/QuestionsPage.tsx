@@ -639,11 +639,20 @@ function QuestionCard({
           </div>
 
           {/* Content */}
-          <div
-            className="text-notion-text line-clamp-2 cursor-pointer"
-            onClick={() => setShowDetail(true)}
-            dangerouslySetInnerHTML={{ __html: question.content_html ?? "" }}
-          />
+          {question.content_html ? (
+            <div
+              className="text-notion-text line-clamp-2 cursor-pointer"
+              onClick={() => setShowDetail(true)}
+              dangerouslySetInnerHTML={{ __html: question.content_html }}
+            />
+          ) : (
+            <p
+              className="text-notion-text line-clamp-2 cursor-pointer whitespace-pre-wrap"
+              onClick={() => setShowDetail(true)}
+            >
+              {question.content}
+            </p>
+          )}
 
           {/* Answer & Mastery */}
           {question.correct_answer && (
@@ -772,10 +781,16 @@ function QuestionCard({
             {/* Content */}
             <div className="p-4 space-y-4">
               {/* Question text */}
-              <div
-                className="text-notion-text text-base leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: question.content_html ?? "" }}
-              />
+              {question.content_html ? (
+                <div
+                  className="text-notion-text text-base leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: question.content_html }}
+                />
+              ) : (
+                <p className="text-notion-text text-base leading-relaxed whitespace-pre-wrap">
+                  {question.content}
+                </p>
+              )}
 
               {/* Original images */}
               {contentImages.length > 0 && (
