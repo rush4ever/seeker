@@ -9,6 +9,7 @@ import QuestionGradingCard from "../../components/grading/QuestionGradingCard";
 import ResultPanel from "../../components/grading/ResultPanel";
 import { Camera } from "lucide-react";
 import EmptyState from "../../components/common/EmptyState";
+import { calculateMastery, shouldGraduate } from "../../lib/graduation";
 
 // Demo data for development — will be replaced with session loading
 const DEMO_QUESTIONS: GeneratedQuestion[] = [
@@ -170,6 +171,24 @@ export default function GradingPage() {
             finalResult.explanation || null,
           ]
         );
+
+        // Recompute mastery for the source question and mark graduated if >= 90.
+        // Source question id is stored in item.question when wired up by useQuestions.
+        // For demo data (no question id), this is a no-op.
+        const questionId = (item.question as any).id as number | undefined;
+        if (questionId) {
+          const answers = (await db.select<{ is_correct: 0 | 1 | 2 | 3 }[]>(
+            `SELECT is_correct FROM practice_answers
+             WHERE question_id = ? OR (session_id = ? AND generated_question_index = ?)`,
+            [questionId, sessionId, item.index]
+          )) as { is_correct: 0 | 1 | 2 | 3 }[];
+          const newMastery = calculateMastery(answers);
+          const newStatus = shouldGraduate(newMastery) ? "graduated" : "active";
+          await db.execute(
+            `UPDATE questions SET mastery_score = ?, status = ? WHERE id = ?`,
+            [newMastery, newStatus, questionId]
+          );
+        }
       } catch (err) {
         console.error("Failed to save practice answer:", err);
       }
