@@ -26,4 +26,27 @@
   .card {
     @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
   }
+
+  /* Notion-style components (Phase 2 token rollout) */
+  .notion-card {
+    @apply bg-white border border-notion-border rounded-notion p-4;
+  }
+  .notion-btn {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-notion transition-colors duration-150;
+  }
+  .notion-btn-primary {
+    @apply notion-btn bg-notion-accent text-white hover:bg-blue-600;
+  }
+  .notion-btn-ghost {
+    @apply notion-btn text-notion-text hover:bg-notion-surface;
+  }
+  .notion-btn-danger {
+    @apply notion-btn text-notion-danger hover:bg-red-50;
+  }
+  .notion-input {
+    @apply w-full px-3 py-1.5 text-sm bg-white border border-notion-border rounded-notion focus:outline-none focus:border-notion-accent;
+  }
+  .notion-chip {
+    @apply inline-flex items-center px-1.5 py-0.5 text-xs rounded;
+  }
 }
