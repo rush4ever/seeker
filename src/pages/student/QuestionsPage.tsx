@@ -12,6 +12,7 @@ import { useSimilarQuestions } from "../../hooks/useSimilarQuestions";
 import { updateMastery, checkGraduationStatus, masteryBarClass } from "../../lib/mastery";
 import type { Question, Subject, SimilarQuestion } from "../../types";
 import EmptyState from "../../components/common/EmptyState";
+import { MathContent } from "../../components/common/MathContent";
 import {
   FileUp,
   Filter,
@@ -764,7 +765,7 @@ function QuestionCard({
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-notion-border">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span
                   className={`text-xs px-2 py-1 rounded-full ${
                     question.subject === "math"
@@ -777,7 +778,11 @@ function QuestionCard({
                 <span className="text-xs px-2 py-1 rounded-full bg-notion-surface text-notion-muted">
                   {typeLabel(question.question_type)}
                 </span>
-                <span className="text-xs text-notion-subtle">{question.chapter}</span>
+                {question.chapter && (
+                  <span className="text-xs text-notion-subtle">
+                    § {question.chapter}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => setShowDetail(false)}
@@ -787,85 +792,178 @@ function QuestionCard({
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              {/* Question text */}
-              {question.content_html ? (
-                <div
-                  className="text-notion-text text-base leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: question.content_html }}
-                />
-              ) : (
-                <p className="text-notion-text text-base leading-relaxed whitespace-pre-wrap">
-                  {question.content}
-                </p>
-              )}
-
-              {/* Original images */}
-              {contentImages.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-notion-muted">原始图片</p>
-                  <div className="grid grid-cols-1 gap-3">
-                    {contentImages.map((img, idx) => (
-                      <div key={idx} className="bg-notion-surface rounded-notion p-3">
-                        <img
-                          src={`data:${img.mimeType};base64,${img.data}`}
-                          alt={img.description}
-                          className="max-w-full h-auto rounded"
-                        />
-                        <p className="text-xs text-notion-subtle mt-1">
-                          识别结果: {img.description}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Answer */}
-              {question.correct_answer && (
-                <div className="bg-green-50 rounded-notion p-3">
-                  <p className="text-sm font-medium text-green-700">参考答案</p>
-                  <p className="text-green-600 mt-1">{question.correct_answer}</p>
-                </div>
-              )}
-
-              {/* Analysis info */}
-              {isAnalyzed && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-notion-surface rounded-notion p-3">
-                    <p className="text-xs text-notion-muted">错因</p>
-                    <p className="text-sm font-medium text-notion-text mt-1">
-                      {errorCauseLabel(question.error_cause)}
-                    </p>
-                  </div>
-                  <div className="bg-notion-surface rounded-notion p-3">
-                    <p className="text-xs text-notion-muted">难度</p>
-                    <p className="text-sm font-medium text-notion-text mt-1">
-                      {difficultyLabel(question.difficulty)}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Mastery */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-notion-muted">掌握度</span>
-                <div className="flex-1 h-2 bg-notion-surface rounded-full overflow-hidden">
+            {/* Body — each section is a divider-bordered block for the
+                "what does the user want to do when opening a question"
+                mental model: read the question → understand what it tests
+                → see how to think and solve → check answer → mastery. */}
+            <div className="divide-y divide-notion-border">
+              {/* 1. Question text */}
+              <section className="p-4 space-y-3">
+                <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
+                  题目
+                </h3>
+                {question.content_html ? (
                   <div
-                    className={`h-full rounded-full transition-all ${masteryBarClass(question.mastery_score)}`}
-                    style={{ width: `${question.mastery_score}%` }}
+                    className="text-notion-text text-base leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: question.content_html }}
                   />
+                ) : (
+                  <p className="text-notion-text text-base leading-relaxed whitespace-pre-wrap">
+                    {question.content}
+                  </p>
+                )}
+              </section>
+
+              {/* 2. Knowledge points — from question_knowledge join */}
+              <section className="p-4 space-y-2">
+                <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
+                  涉及知识点
+                </h3>
+                <KnowledgeTags questionId={question.id} />
+              </section>
+
+              {/* 3. Chapter / textbook reference */}
+              <section className="p-4 space-y-2">
+                <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
+                  对应章节
+                </h3>
+                <p className="text-sm text-notion-text">
+                  {question.chapter || "未指定章节"}
+                </p>
+              </section>
+
+              {/* 4 + 5. Solution approach + steps (or "未分析" CTA) */}
+              {isAnalyzed ? (
+                <>
+                  <section className="p-4 space-y-2">
+                    <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
+                      解题思路
+                    </h3>
+                    {question.solution_approach ? (
+                      <MathContent
+                        text={question.solution_approach}
+                        className="text-sm text-notion-text leading-relaxed"
+                      />
+                    ) : (
+                      <p className="text-sm text-notion-subtle">暂无</p>
+                    )}
+                  </section>
+                  <section className="p-4 space-y-2">
+                    <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
+                      解题步骤
+                    </h3>
+                    <SolutionStepsList steps={question.solution_steps} />
+                  </section>
+                </>
+              ) : (
+                <section className="p-4 space-y-2">
+                  <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
+                    AI 分析
+                  </h3>
+                  <p className="text-sm text-notion-muted">
+                    还未生成解题思路与步骤。
+                  </p>
+                  <button
+                    onClick={() => onAnalyze(question)}
+                    disabled={isAnalyzing}
+                    className="notion-btn-primary text-sm disabled:opacity-50"
+                  >
+                    {isAnalyzing ? "分析中..." : "立即 AI 分析"}
+                  </button>
+                </section>
+              )}
+
+              {/* 6. Reference answer */}
+              {question.correct_answer && (
+                <section className="p-4 space-y-2">
+                  <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
+                    参考答案
+                  </h3>
+                  <MathContent
+                    text={question.correct_answer}
+                    className="text-sm text-notion-text leading-relaxed"
+                  />
+                </section>
+              )}
+
+              {/* 7. Mastery + error cause + difficulty */}
+              <section className="p-4 space-y-3">
+                <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
+                  掌握度
+                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-2 bg-notion-surface rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${masteryBarClass(question.mastery_score)}`}
+                      style={{ width: `${question.mastery_score}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-notion-muted">
+                    {Math.round(question.mastery_score)}%
+                  </span>
                 </div>
-                <span className="text-xs font-medium text-notion-muted">
-                  {Math.round(question.mastery_score)}%
-                </span>
-              </div>
+                {isAnalyzed && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="text-notion-muted">
+                      错因：
+                      <span className="text-notion-text ml-1">
+                        {errorCauseLabel(question.error_cause)}
+                      </span>
+                    </span>
+                    <span className="text-notion-muted">
+                      难度：
+                      <span className="text-notion-text ml-1">
+                        {difficultyLabel(question.difficulty)}
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </section>
+
+              {/* 8. Original image — show ONE whole picture, not per-formula.
+                  The OCR / recognition results are no longer exposed here:
+                  the user came to study, not to verify the recognizer. */}
+              {contentImages.length > 0 && contentImages[0]?.data && (
+                <section className="p-4 space-y-2">
+                  <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
+                    原始题目图片
+                  </h3>
+                  <img
+                    src={`data:${contentImages[0].mimeType};base64,${contentImages[0].data}`}
+                    alt="题目原图"
+                    className="max-w-full h-auto rounded-notion border border-notion-border"
+                  />
+                </section>
+              )}
             </div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function SolutionStepsList({ steps }: { steps: string | null | undefined }) {
+  const parsed: string[] = (() => {
+    if (!steps) return [];
+    try {
+      const v = JSON.parse(steps);
+      return Array.isArray(v) ? v.filter((s) => typeof s === "string") : [];
+    } catch {
+      return [];
+    }
+  })();
+  if (parsed.length === 0) {
+    return <p className="text-sm text-notion-subtle">暂无</p>;
+  }
+  return (
+    <ol className="space-y-2 list-decimal list-inside text-sm text-notion-text">
+      {parsed.map((s, i) => (
+        <li key={i} className="leading-relaxed">
+          <MathContent text={s} />
+        </li>
+      ))}
+    </ol>
   );
 }
 

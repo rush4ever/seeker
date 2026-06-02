@@ -50,8 +50,8 @@ export interface Question {
   difficulty: Difficulty | null;
   mastery_score: number;
   status: QuestionStatus;
-  solution_approach: string | null;
-  solution_steps: string | null;
+  solution_approach?: string | null;
+  solution_steps?: string | null;
   created_at: string;
   updated_at: string;
 }
