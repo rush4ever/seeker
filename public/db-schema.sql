@@ -94,6 +94,12 @@ CREATE TABLE IF NOT EXISTS review_schedule (
 -- Migration: add content_html if not exists (safe to re-run)
 ALTER TABLE questions ADD COLUMN content_html TEXT;
 
+CREATE TABLE IF NOT EXISTS app_config (
+  key TEXT PRIMARY KEY,
+  value TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_questions_student ON questions(student_id);
 CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(status);
 CREATE INDEX IF NOT EXISTS idx_mastery_history_student ON mastery_history(student_id);
