@@ -14,6 +14,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::student::list_students,
             commands::grading::save_answer_photo,
+            commands::grading::save_uploaded_photo,
             commands::export::export_pdf,
             commands::export::export_word,
         ])

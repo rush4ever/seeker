@@ -40,3 +40,38 @@ pub async fn save_answer_photo(
 
     Ok(file_path.to_string_lossy().to_string())
 }
+
+/// Persist a user-uploaded photo (e.g. attached to a manually added question)
+/// under `app_data/photos/{student_id}/{timestamp}-{safe-name}`.
+#[tauri::command]
+pub fn save_uploaded_photo(
+    app_handle: tauri::AppHandle,
+    student_id: i64,
+    filename: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
+
+    let dir = app_data_dir.join("photos").join(student_id.to_string());
+    fs::create_dir_all(&dir).map_err(|e| format!("Create dir error: {}", e))?;
+
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| format!("Clock error: {}", e))?
+        .as_millis();
+
+    // Strip path separators and whitespace from the user-supplied filename to
+    // keep the resulting path inside the photos directory.
+    let safe_name: String = filename
+        .chars()
+        .map(|c| if matches!(c, '/' | '\\' | ':' | ' ') { '_' } else { c })
+        .collect();
+
+    let file_path = dir.join(format!("{}-{}", ts, safe_name));
+    fs::write(&file_path, &bytes).map_err(|e| format!("Write file error: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
