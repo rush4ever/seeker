@@ -25,8 +25,10 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Plus,
 } from "lucide-react";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
+import ManualAddQuestionForm from "../../components/question/ManualAddQuestionForm";
 
 function subjectLabel(s: Subject): string {
   return s === "math" ? "数学" : "物理";
@@ -52,6 +54,7 @@ export default function QuestionsPage() {
   const [importProgress, setImportProgress] = useState<ParseProgress | null>(null);
   const [filterSubject, setFilterSubject] = useState<Subject | "all">("all");
   const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
+  const [adding, setAdding] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{
     current: number;
     total: number;
@@ -405,8 +408,26 @@ export default function QuestionsPage() {
             onChange={handleFileSelect}
             className="hidden"
           />
+
+          {/* Manual add button */}
+          <button
+            onClick={() => setAdding((s) => !s)}
+            className="notion-btn-ghost flex items-center gap-2 text-sm"
+          >
+            <Plus size={14} />
+            {adding ? "收起" : "添加"}
+          </button>
         </div>
       </div>
+
+      {/* Manual add form */}
+      {adding && currentStudent && (
+        <ManualAddQuestionForm
+          studentId={currentStudent.id}
+          onClose={() => setAdding(false)}
+          onAdded={() => refresh()}
+        />
+      )}
 
       {/* Errors */}
       {(analysisError || similarError) && (
