@@ -19,34 +19,34 @@ export default function AppShell({ children }: Props) {
   const { roleMode, currentStudent } = useApp();
 
   return (
-    <div className="h-screen flex bg-gray-50">
-      <div className="flex">
-        <StudentSwitcher />
-        <div className="w-52 bg-white border-r border-gray-200 flex flex-col">
-          <div className="p-4 border-b border-gray-100">
-            <span className="font-semibold text-gray-800">
-              {roleMode === "student" ? "学习中心" : "家长中心"}
-            </span>
-          </div>
-          <div className="flex-1 p-3">
-            {roleMode === "student" ? <StudentNav /> : <ParentNav />}
-          </div>
-          <div className="p-3 border-t border-gray-100">
-            <RoleToggle />
-          </div>
+    <div className="h-screen flex bg-white text-notion-text font-notion">
+      <aside className="w-64 border-r border-notion-border flex flex-col">
+        <div className="px-4 py-3 border-b border-notion-border">
+          <span className="text-sm font-semibold text-notion-text">
+            {roleMode === "student" ? "学习中心" : "家长中心"}
+          </span>
         </div>
-      </div>
+        <div className="border-b border-notion-border">
+          <StudentSwitcher />
+        </div>
+        <div className="flex-1 py-2 overflow-auto">
+          {roleMode === "student" ? <StudentNav /> : <ParentNav />}
+        </div>
+        <div className="p-3 border-t border-notion-border">
+          <RoleToggle />
+        </div>
+      </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <OllamaStatusBar />
-        <header className="h-14 bg-white border-b border-gray-200 flex items-center px-6">
-          <h1 className="text-lg font-medium text-gray-800">
+        <header className="h-12 px-6 flex items-center justify-between border-b border-notion-border">
+          <h1 className="text-sm font-medium text-notion-text">
             {currentStudent
               ? `${currentStudent.name} · ${gradeLabel(currentStudent.current_grade)}`
               : "请选择一个学生"}
           </h1>
+          <OllamaStatusBar />
         </header>
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="flex-1 overflow-auto px-6 py-5">{children}</main>
       </div>
     </div>
   );
