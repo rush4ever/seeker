@@ -84,9 +84,16 @@ export function useQuestionAnalysis() {
         // Update question
         await db.execute(
           `UPDATE questions
-           SET error_cause = $1, difficulty = $2, updated_at = datetime('now')
-           WHERE id = $3`,
-          [result.errorCause, result.difficulty, question.id]
+           SET error_cause = $1, difficulty = $2, solution_approach = $3,
+               solution_steps = $4, updated_at = datetime('now')
+           WHERE id = $5`,
+          [
+            result.errorCause,
+            result.difficulty,
+            result.solutionApproach,
+            JSON.stringify(result.solutionSteps),
+            question.id,
+          ]
         );
 
         // Insert knowledge associations
@@ -167,9 +174,16 @@ export function useQuestionAnalysis() {
           const db = await getDb();
           await db.execute(
             `UPDATE questions
-             SET error_cause = $1, difficulty = $2, updated_at = datetime('now')
-             WHERE id = $3`,
-            [result.errorCause, result.difficulty, question.id]
+             SET error_cause = $1, difficulty = $2, solution_approach = $3,
+                 solution_steps = $4, updated_at = datetime('now')
+             WHERE id = $5`,
+            [
+              result.errorCause,
+              result.difficulty,
+              result.solutionApproach,
+              JSON.stringify(result.solutionSteps),
+              question.id,
+            ]
           );
 
           for (const kid of matchedKnowledgeIds) {

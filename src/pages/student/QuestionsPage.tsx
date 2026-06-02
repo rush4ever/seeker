@@ -273,8 +273,17 @@ export default function QuestionsPage() {
 
             const db = await getDb();
             await db.execute(
-              `UPDATE questions SET error_cause = $1, difficulty = $2, updated_at = datetime('now') WHERE id = $3`,
-              [result.errorCause, result.difficulty, q.id]
+              `UPDATE questions
+               SET error_cause = $1, difficulty = $2, solution_approach = $3,
+                   solution_steps = $4, updated_at = datetime('now')
+               WHERE id = $5`,
+              [
+                result.errorCause,
+                result.difficulty,
+                result.solutionApproach,
+                JSON.stringify(result.solutionSteps),
+                q.id,
+              ]
             );
             for (const kid of matchedIds) {
               await db.execute(
