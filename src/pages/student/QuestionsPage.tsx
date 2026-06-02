@@ -304,11 +304,11 @@ export default function QuestionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">
+          <h2 className="text-xl font-semibold text-notion-text">
             错题本 ({filteredQuestions.length} 道)
           </h2>
           {unanalyzedQuestions.length > 0 && (
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-notion-muted mt-1">
               {unanalyzedQuestions.length} 道待 AI 分析
             </p>
           )}
@@ -317,7 +317,7 @@ export default function QuestionsPage() {
           {/* Ollama status */}
           <div className="flex items-center gap-1.5 text-xs">
             {ollamaAvailable === null ? (
-              <Loader2 size={12} className="animate-spin text-gray-400" />
+              <Loader2 size={12} className="animate-spin text-notion-subtle" />
             ) : ollamaAvailable ? (
               <>
                 <CheckCircle2 size={12} className="text-green-500" />
@@ -332,8 +332,8 @@ export default function QuestionsPage() {
           </div>
 
           {/* Subject filter */}
-          <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
-            <Filter size={16} className="text-gray-400" />
+          <div className="flex items-center gap-2 bg-white rounded-notion border border-notion-border px-3 py-2">
+            <Filter size={16} className="text-notion-subtle" />
             <select
               value={filterSubject}
               onChange={(e) =>
@@ -352,7 +352,7 @@ export default function QuestionsPage() {
             <button
               onClick={handleBatchAnalyze}
               disabled={!!batchProgress || !ollamaAvailable}
-              className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="notion-btn-primary flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {batchProgress ? (
                 <>
@@ -382,7 +382,7 @@ export default function QuestionsPage() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-60"
+            className="notion-btn-ghost flex items-center gap-2 text-sm disabled:opacity-60"
           >
             {importing ? (
               <>
@@ -410,7 +410,7 @@ export default function QuestionsPage() {
 
       {/* Errors */}
       {(analysisError || similarError) && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+        <div className="bg-red-50 border border-red-200 rounded-notion px-4 py-3 text-sm text-red-700 flex items-center gap-2">
           <AlertCircle size={16} />
           {analysisError || similarError}
         </div>
@@ -418,9 +418,9 @@ export default function QuestionsPage() {
 
       {/* Question list */}
       {loading ? (
-        <div className="text-center text-gray-400 py-12">加载中...</div>
+        <div className="text-center text-notion-subtle py-12">加载中...</div>
       ) : filteredQuestions.length === 0 ? (
-        <div className="card text-center py-12 text-gray-400">
+        <div className="notion-card text-center py-12 text-notion-subtle">
           <BookOpen size={48} className="mx-auto mb-4" />
           <p>暂无错题</p>
           <p className="text-sm mt-2">点击"导入 Word"按钮导入错题文档</p>
@@ -446,32 +446,32 @@ export default function QuestionsPage() {
       {/* Import confirmation dialog */}
       {pendingImport && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">确认导入</h3>
-            <p className="text-sm text-gray-600 mb-4">
+          <div className="bg-white rounded-notion p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-semibold text-notion-text mb-4">确认导入</h3>
+            <p className="text-sm text-notion-muted mb-4">
               文件: <span className="font-medium">{pendingImport.fileName}</span>
               <br />
               共解析出 <span className="font-medium">{pendingImport.parsedQuestions.length}</span> 道错题
             </p>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">学科</label>
+              <label className="block text-sm font-medium text-notion-text mb-2">学科</label>
               <div className="flex gap-3">
                 <button
                   onClick={() => setPendingImport({ ...pendingImport, subject: "math" })}
-                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  className={`flex-1 py-2 rounded-notion border text-sm font-medium transition-colors ${
                     pendingImport.subject === "math"
-                      ? "bg-primary-50 border-primary-300 text-primary-700"
-                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                      ? "bg-notion-accent-bg border-primary-300 text-notion-text"
+                      : "border-notion-border text-notion-muted hover:bg-notion-surface"
                   }`}
                 >
                   数学
                 </button>
                 <button
                   onClick={() => setPendingImport({ ...pendingImport, subject: "physics" })}
-                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  className={`flex-1 py-2 rounded-notion border text-sm font-medium transition-colors ${
                     pendingImport.subject === "physics"
-                      ? "bg-primary-50 border-primary-300 text-primary-700"
-                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                      ? "bg-notion-accent-bg border-primary-300 text-notion-text"
+                      : "border-notion-border text-notion-muted hover:bg-notion-surface"
                   }`}
                 >
                   物理
@@ -482,14 +482,14 @@ export default function QuestionsPage() {
               <button
                 onClick={handleConfirmImport}
                 disabled={importing}
-                className="btn-primary flex-1 text-sm disabled:opacity-50"
+                className="notion-btn-primary flex-1 text-sm disabled:opacity-50"
               >
                 {importing ? "导入中..." : "确认导入"}
               </button>
               <button
                 onClick={() => setPendingImport(null)}
                 disabled={importing}
-                className="btn-secondary flex-1 text-sm disabled:opacity-50"
+                className="notion-btn-ghost flex-1 text-sm disabled:opacity-50"
               >
                 取消
               </button>
@@ -570,7 +570,7 @@ function QuestionCard({
   }, [onGenerateSimilar, question]);
 
   return (
-    <div className="card hover:shadow-md transition-shadow">
+    <div className="notion-card hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           {/* Tags row */}
@@ -584,10 +584,10 @@ function QuestionCard({
             >
               {subjectLabel(question.subject)}
             </span>
-            <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+            <span className="text-xs px-2 py-1 rounded-full bg-notion-surface text-notion-muted">
               {typeLabel(question.question_type)}
             </span>
-            <span className="text-xs text-gray-400">{question.chapter}</span>
+            <span className="text-xs text-notion-subtle">{question.chapter}</span>
 
             {/* Analysis badges */}
             {isAnalyzed && (
@@ -619,7 +619,7 @@ function QuestionCard({
 
           {/* Content */}
           <div
-            className="text-gray-800 line-clamp-2 cursor-pointer"
+            className="text-notion-text line-clamp-2 cursor-pointer"
             onClick={() => setShowDetail(true)}
             dangerouslySetInnerHTML={{ __html: question.content_html ?? "" }}
           />
@@ -631,14 +631,14 @@ function QuestionCard({
             </p>
           )}
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs text-gray-500">掌握度</span>
-            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]">
+            <span className="text-xs text-notion-muted">掌握度</span>
+            <div className="flex-1 h-1.5 bg-notion-surface rounded-full overflow-hidden max-w-[120px]">
               <div
                 className={`h-full rounded-full transition-all ${masteryBarClass(question.mastery_score)}`}
                 style={{ width: `${question.mastery_score}%` }}
               />
             </div>
-            <span className="text-xs font-medium text-gray-600">
+            <span className="text-xs font-medium text-notion-muted">
               {Math.round(question.mastery_score)}%
             </span>
           </div>
@@ -650,7 +650,7 @@ function QuestionCard({
           {isAnalyzed && (
             <button
               onClick={() => setShowSimilar((s) => !s)}
-              className="flex items-center gap-1 mt-3 text-sm text-primary-600 hover:text-primary-700 transition-colors"
+              className="flex items-center gap-1 mt-3 text-sm text-notion-muted hover:text-notion-text transition-colors"
             >
               {showSimilar ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               相似题
@@ -675,7 +675,7 @@ function QuestionCard({
             <button
               onClick={() => onAnalyze(question)}
               disabled={isAnalyzing || !ollamaAvailable}
-              className="p-2 text-primary-500 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-40"
+              className="p-2 text-primary-500 hover:text-notion-text hover:bg-notion-accent-bg rounded-notion transition-colors disabled:opacity-40"
               title="AI 分析"
             >
               {isAnalyzing ? (
@@ -689,14 +689,14 @@ function QuestionCard({
             <>
               <button
                 onClick={() => onMarkResult(question, true)}
-                className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-notion transition-colors"
                 title="做对了"
               >
                 <CheckCircle2 size={16} />
               </button>
               <button
                 onClick={() => onMarkResult(question, false)}
-                className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-notion transition-colors"
                 title="做错了"
               >
                 <AlertCircle size={16} />
@@ -705,7 +705,7 @@ function QuestionCard({
           )}
           <button
             onClick={() => onDelete(question.id)}
-            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            className="p-2 text-notion-subtle hover:text-red-500 hover:bg-red-50 rounded-notion transition-colors"
             title="删除"
           >
             <Trash2 size={16} />
@@ -720,11 +720,11 @@ function QuestionCard({
           onClick={() => setShowDetail(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+            className="bg-white rounded-notion shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between p-4 border-b border-notion-border">
               <div className="flex items-center gap-2">
                 <span
                   className={`text-xs px-2 py-1 rounded-full ${
@@ -735,14 +735,14 @@ function QuestionCard({
                 >
                   {subjectLabel(question.subject)}
                 </span>
-                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                <span className="text-xs px-2 py-1 rounded-full bg-notion-surface text-notion-muted">
                   {typeLabel(question.question_type)}
                 </span>
-                <span className="text-xs text-gray-400">{question.chapter}</span>
+                <span className="text-xs text-notion-subtle">{question.chapter}</span>
               </div>
               <button
                 onClick={() => setShowDetail(false)}
-                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1 text-notion-subtle hover:text-notion-muted hover:bg-notion-surface rounded-notion transition-colors"
               >
                 <X size={18} />
               </button>
@@ -752,23 +752,23 @@ function QuestionCard({
             <div className="p-4 space-y-4">
               {/* Question text */}
               <div
-                className="text-gray-800 text-base leading-relaxed"
+                className="text-notion-text text-base leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: question.content_html ?? "" }}
               />
 
               {/* Original images */}
               {contentImages.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-gray-500">原始图片</p>
+                  <p className="text-xs font-medium text-notion-muted">原始图片</p>
                   <div className="grid grid-cols-1 gap-3">
                     {contentImages.map((img, idx) => (
-                      <div key={idx} className="bg-gray-50 rounded-lg p-3">
+                      <div key={idx} className="bg-notion-surface rounded-notion p-3">
                         <img
                           src={`data:${img.mimeType};base64,${img.data}`}
                           alt={img.description}
                           className="max-w-full h-auto rounded"
                         />
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-notion-subtle mt-1">
                           识别结果: {img.description}
                         </p>
                       </div>
@@ -779,7 +779,7 @@ function QuestionCard({
 
               {/* Answer */}
               {question.correct_answer && (
-                <div className="bg-green-50 rounded-lg p-3">
+                <div className="bg-green-50 rounded-notion p-3">
                   <p className="text-sm font-medium text-green-700">参考答案</p>
                   <p className="text-green-600 mt-1">{question.correct_answer}</p>
                 </div>
@@ -788,15 +788,15 @@ function QuestionCard({
               {/* Analysis info */}
               {isAnalyzed && (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-500">错因</p>
-                    <p className="text-sm font-medium text-gray-700 mt-1">
+                  <div className="bg-notion-surface rounded-notion p-3">
+                    <p className="text-xs text-notion-muted">错因</p>
+                    <p className="text-sm font-medium text-notion-text mt-1">
                       {errorCauseLabel(question.error_cause)}
                     </p>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-500">难度</p>
-                    <p className="text-sm font-medium text-gray-700 mt-1">
+                  <div className="bg-notion-surface rounded-notion p-3">
+                    <p className="text-xs text-notion-muted">难度</p>
+                    <p className="text-sm font-medium text-notion-text mt-1">
                       {difficultyLabel(question.difficulty)}
                     </p>
                   </div>
@@ -805,14 +805,14 @@ function QuestionCard({
 
               {/* Mastery */}
               <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-500">掌握度</span>
-                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <span className="text-xs text-notion-muted">掌握度</span>
+                <div className="flex-1 h-2 bg-notion-surface rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${masteryBarClass(question.mastery_score)}`}
                     style={{ width: `${question.mastery_score}%` }}
                   />
                 </div>
-                <span className="text-xs font-medium text-gray-600">
+                <span className="text-xs font-medium text-notion-muted">
                   {Math.round(question.mastery_score)}%
                 </span>
               </div>
@@ -838,13 +838,13 @@ function SimilarQuestionsPanel({
   ollamaAvailable: boolean;
 }) {
   return (
-    <div className="mt-3 pt-3 border-t border-gray-100">
+    <div className="mt-3 pt-3 border-t border-notion-border">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">相似练习题</span>
+        <span className="text-sm font-medium text-notion-text">相似练习题</span>
         <button
           onClick={onGenerate}
           disabled={isGenerating || !ollamaAvailable}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 transition-colors disabled:opacity-40"
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-notion-accent-bg text-notion-muted rounded-notion hover:bg-primary-100 transition-colors disabled:opacity-40"
         >
           {isGenerating ? (
             <Loader2 size={12} className="animate-spin" />
@@ -856,15 +856,15 @@ function SimilarQuestionsPanel({
       </div>
 
       {similarQuestions.length === 0 ? (
-        <p className="text-sm text-gray-400 py-2">暂无相似题，点击生成</p>
+        <p className="text-sm text-notion-subtle py-2">暂无相似题，点击生成</p>
       ) : (
         <div className="space-y-3">
           {similarQuestions.map((sq, idx) => (
             <div
               key={`${questionId}-${idx}`}
-              className="bg-gray-50 rounded-lg p-3 text-sm"
+              className="bg-notion-surface rounded-notion p-3 text-sm"
             >
-              <p className="text-gray-800 font-medium mb-1">
+              <p className="text-notion-text font-medium mb-1">
                 {idx + 1}. {sq.content}
               </p>
               {sq.answer && (
@@ -873,7 +873,7 @@ function SimilarQuestionsPanel({
                 </p>
               )}
               {sq.explanation && (
-                <p className="text-gray-500 text-xs">
+                <p className="text-notion-muted text-xs">
                   解析: {sq.explanation}
                 </p>
               )}
@@ -920,7 +920,7 @@ function KnowledgeTags({ questionId }: { questionId: number }) {
       {tags.map((t) => (
         <span
           key={t.name}
-          className="text-xs px-2 py-0.5 rounded-md bg-primary-50 text-primary-600 border border-primary-100"
+          className="text-xs px-2 py-0.5 rounded-notion bg-notion-accent-bg text-notion-muted border border-primary-100"
         >
           {t.name}
         </span>

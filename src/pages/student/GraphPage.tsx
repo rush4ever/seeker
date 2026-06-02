@@ -74,18 +74,18 @@ export default function GraphPage() {
     <div className="h-full flex flex-col">
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-4 shrink-0">
-        <h2 className="text-xl font-semibold text-gray-800">知识图谱</h2>
+        <h2 className="text-xl font-semibold text-notion-text">知识图谱</h2>
         <div className="flex items-center gap-3">
           {/* Subject tabs */}
-          <div className="flex bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="flex bg-white rounded-notion border border-notion-border overflow-hidden">
             {SUBJECTS.map((s) => (
               <button
                 key={s.id}
                 onClick={() => setSubject(s.id)}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   subject === s.id
-                    ? "bg-primary-50 text-primary-700"
-                    : "text-gray-600 hover:bg-gray-50"
+                    ? "bg-notion-accent-bg text-notion-text"
+                    : "text-notion-muted hover:bg-notion-surface"
                 }`}
               >
                 {s.label}
@@ -94,8 +94,8 @@ export default function GraphPage() {
           </div>
 
           {/* Grade filter */}
-          <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
-            <Filter size={14} className="text-gray-400" />
+          <div className="flex items-center gap-2 bg-white rounded-notion border border-notion-border px-3 py-2">
+            <Filter size={14} className="text-notion-subtle" />
             <select
               value={grade ?? ""}
               onChange={(e) =>
@@ -113,7 +113,7 @@ export default function GraphPage() {
           </div>
 
           {/* Semester filter */}
-          <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-notion border border-notion-border px-3 py-2">
             <select
               value={semester ?? ""}
               onChange={(e) =>
@@ -145,9 +145,9 @@ export default function GraphPage() {
       {/* Main content */}
       <div className="flex-1 flex gap-4 overflow-hidden">
         {/* Tree panel */}
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto">
+        <div className="flex-1 bg-white rounded-notion border border-notion-border overflow-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-gray-400">
+            <div className="flex items-center justify-center h-full text-notion-subtle">
               加载中...
             </div>
           ) : error ? (
@@ -155,7 +155,7 @@ export default function GraphPage() {
               {error}
             </div>
           ) : tree.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+            <div className="flex flex-col items-center justify-center h-full text-notion-subtle">
               <Brain size={48} className="mb-4" />
               <p>暂无知识点数据</p>
             </div>
@@ -171,11 +171,11 @@ export default function GraphPage() {
         </div>
 
         {/* Detail panel */}
-        <div className="w-80 bg-white rounded-xl border border-gray-200 overflow-auto shrink-0">
+        <div className="w-80 bg-white rounded-notion border border-notion-border overflow-auto shrink-0">
           {selectedNode && currentStudent ? (
             <NodeDetail node={selectedNode} studentId={currentStudent.id} />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 p-6 text-center">
+            <div className="flex flex-col items-center justify-center h-full text-notion-subtle p-6 text-center">
               <Brain size={48} className="mb-4" />
               <p>点击知识节点查看详情</p>
             </div>
@@ -196,11 +196,11 @@ function SummaryCard({
   color: string;
 }) {
   return (
-    <div className="flex-1 bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3">
+    <div className="flex-1 bg-white rounded-notion border border-notion-border px-4 py-3 flex items-center gap-3">
       <div className={`w-3 h-3 rounded-full ${color}`} />
       <div>
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className="text-lg font-semibold text-gray-800">{count}</p>
+        <p className="text-xs text-notion-muted">{label}</p>
+        <p className="text-lg font-semibold text-notion-text">{count}</p>
       </div>
     </div>
   );
@@ -253,25 +253,25 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
     }
   };
 
-  const colorClass = !hasQuestions ? "text-gray-500" : masteryTextClass(mastery);
-  const bgClass = !hasQuestions ? "bg-gray-50" : masteryBgClass(mastery);
+  const colorClass = !hasQuestions ? "text-notion-muted" : masteryTextClass(mastery);
+  const bgClass = !hasQuestions ? "bg-notion-surface" : masteryBgClass(mastery);
   const hexColor = !hasQuestions ? "#9ca3af" : masteryColorHex(mastery);
 
   return (
     <div className="p-4 space-y-4">
       <div>
-        <h3 className="text-lg font-semibold text-gray-800">{kn.name}</h3>
-        <p className="text-sm text-gray-500 mt-1">
+        <h3 className="text-lg font-semibold text-notion-text">{kn.name}</h3>
+        <p className="text-sm text-notion-muted mt-1">
           {kn.grade === 0
             ? "全部年级"
             : `${["", "", "", "", "", "", "", "", "初二", "初三", "高一", "高二", "高三"][kn.grade] || ""}${kn.semester === 1 ? "上册" : kn.semester === 2 ? "下册" : ""}`}
         </p>
       </div>
 
-      {/* Mastery card */}
-      <div className={`rounded-lg p-4 ${bgClass}`}>
+      {/* Mastery notion-card */}
+      <div className={`rounded-notion p-4 ${bgClass}`}>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">掌握度</span>
+          <span className="text-sm text-notion-muted">掌握度</span>
           <span className={`text-2xl font-bold ${colorClass}`}>
             {hasQuestions ? `${Math.round(mastery)}%` : "—"}
           </span>
@@ -287,7 +287,7 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
       </div>
 
       {/* Question count */}
-      <div className="flex items-center gap-2 text-sm text-gray-600">
+      <div className="flex items-center gap-2 text-sm text-notion-muted">
         <BookOpen size={16} />
         <span>关联错题: {kn.question_count} 道</span>
       </div>
@@ -304,12 +304,12 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
 
       {/* Practice generation */}
       {hasQuestions && (
-        <div className="pt-2 border-t border-gray-100 space-y-3">
+        <div className="pt-2 border-t border-notion-border space-y-3">
           {!questions.length ? (
             <button
               onClick={handleGeneratePractice}
               disabled={loading}
-              className="w-full btn-primary flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+              className="w-full notion-btn-primary flex items-center justify-center gap-2 text-sm disabled:opacity-50"
             >
               {loading ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -320,7 +320,7 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
             </button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-notion-muted">
                 已加载 <span className="font-medium">{questions.length}</span> 道关联错题
               </p>
               <ExportButtonGroup
@@ -331,7 +331,7 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
               />
               <button
                 onClick={() => setQuestions([])}
-                className="w-full text-xs text-gray-400 hover:text-gray-600 py-1"
+                className="w-full text-xs text-notion-subtle hover:text-notion-muted py-1"
               >
                 重新加载
               </button>
@@ -342,17 +342,17 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
 
       {/* Sub-nodes list if any */}
       {node.children.length > 0 && (
-        <div className="pt-2 border-t border-gray-100">
-          <p className="text-sm font-medium text-gray-700 mb-2">包含知识点</p>
+        <div className="pt-2 border-t border-notion-border">
+          <p className="text-sm font-medium text-notion-text mb-2">包含知识点</p>
           <div className="space-y-1">
             {node.children.map((child) => (
               <div
                 key={child.node.id}
-                className="flex items-center justify-between text-sm px-2 py-1 rounded hover:bg-gray-50"
+                className="flex items-center justify-between text-sm px-2 py-1 rounded hover:bg-notion-surface"
               >
-                <span className="text-gray-600">{child.node.name}</span>
+                <span className="text-notion-muted">{child.node.name}</span>
                 {child.node.question_count > 0 && (
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-notion-subtle">
                     {child.node.question_count}道
                   </span>
                 )}

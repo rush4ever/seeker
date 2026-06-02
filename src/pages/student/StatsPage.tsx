@@ -81,12 +81,12 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-800">学习统计</h2>
+      <h2 className="text-xl font-semibold text-notion-text">学习统计</h2>
 
       {loading ? (
-        <div className="text-center text-gray-400 py-12">加载中...</div>
+        <div className="text-center text-notion-subtle py-12">加载中...</div>
       ) : questions.length === 0 ? (
-        <div className="card text-center py-12 text-gray-400">
+        <div className="notion-card text-center py-12 text-notion-subtle">
           <BarChart3 size={48} className="mx-auto mb-4" />
           <p>暂无数据</p>
           <p className="text-sm mt-2">导入错题后将显示统计信息</p>
@@ -127,22 +127,22 @@ export default function StatsPage() {
 
           {/* Subject Distribution */}
           {distribution.length > 0 && (
-            <div className="card">
-              <h3 className="text-lg font-medium text-gray-800 mb-4">
+            <div className="notion-card">
+              <h3 className="text-lg font-medium text-notion-text mb-4">
                 学科分布
               </h3>
               <div className="space-y-4">
                 {distribution.map((d) => (
                   <div key={d.subject}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-notion-muted">
                         {d.subject === "math" ? "数学" : "物理"}
                       </span>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-notion-muted">
                         {d.count} 道 · 平均掌握度 {d.avgMastery}%
                       </span>
                     </div>
-                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-3 bg-notion-surface rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${masteryBarClass(d.avgMastery)}`}
                         style={{ width: `${d.avgMastery}%` }}
@@ -155,19 +155,19 @@ export default function StatsPage() {
           )}
 
           {/* Exam Prediction */}
-          <div className="card">
+          <div className="notion-card">
             <div className="flex items-center gap-2 mb-4">
-              <Target size={20} className="text-primary-600" />
-              <h3 className="text-lg font-medium text-gray-800">
+              <Target size={20} className="text-notion-muted" />
+              <h3 className="text-lg font-medium text-notion-text">
                 考试风险预测
               </h3>
-              <span className="text-xs text-gray-400 ml-2">
+              <span className="text-xs text-notion-subtle ml-2">
                 基于当前错题分布
               </span>
             </div>
 
             {predictions.length === 0 ? (
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-notion-subtle">
                 暂无足够数据生成预测，请先分析错题并关联知识点
               </p>
             ) : (
@@ -175,7 +175,7 @@ export default function StatsPage() {
                 {predictions.map((p, idx) => (
                   <div
                     key={p.knowledgeName}
-                    className="flex items-center gap-4 p-3 rounded-lg bg-gray-50"
+                    className="flex items-center gap-4 p-3 rounded-notion bg-notion-surface"
                   >
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
@@ -190,12 +190,12 @@ export default function StatsPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-800">
+                        <span className="font-medium text-notion-text">
                           {p.knowledgeName}
                         </span>
                         <RiskBadge risk={p.risk} />
                       </div>
-                      <div className="text-sm text-gray-500 mt-0.5">
+                      <div className="text-sm text-notion-muted mt-0.5">
                         {p.questionCount} 道错题 · 平均掌握度 {p.avgMastery}%
                       </div>
                     </div>
@@ -207,36 +207,36 @@ export default function StatsPage() {
 
           {/* Overall Stats */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="card text-center">
+            <div className="notion-card text-center">
               <BookOpen size={24} className="mx-auto mb-2 text-primary-500" />
-              <div className="text-2xl font-bold text-gray-800">
+              <div className="text-2xl font-bold text-notion-text">
                 {questions.length}
               </div>
-              <div className="text-sm text-gray-500">累计错题</div>
+              <div className="text-sm text-notion-muted">累计错题</div>
             </div>
-            <div className="card text-center">
+            <div className="notion-card text-center">
               <CheckCircle2
                 size={24}
                 className="mx-auto mb-2 text-green-500"
               />
-              <div className="text-2xl font-bold text-gray-800">
+              <div className="text-2xl font-bold text-notion-text">
                 {questions.filter((q) => q.error_cause).length}
               </div>
-              <div className="text-sm text-gray-500">已分析</div>
+              <div className="text-sm text-notion-muted">已分析</div>
             </div>
-            <div className="card text-center">
+            <div className="notion-card text-center">
               <AlertTriangle
                 size={24}
                 className="mx-auto mb-2 text-red-500"
               />
-              <div className="text-2xl font-bold text-gray-800">
+              <div className="text-2xl font-bold text-notion-text">
                 {
                   questions.filter(
                     (q) => q.error_cause && q.mastery_score < 30
                   ).length
                 }
               </div>
-              <div className="text-sm text-gray-500">待攻克</div>
+              <div className="text-sm text-notion-muted">待攻克</div>
             </div>
           </div>
         </>
@@ -259,12 +259,12 @@ function SummaryCard({
   bg: string;
 }) {
   return (
-    <div className="card">
-      <div className={`inline-flex p-2 rounded-lg ${bg} ${color} mb-3`}>
+    <div className="notion-card">
+      <div className={`inline-flex p-2 rounded-notion ${bg} ${color} mb-3`}>
         {icon}
       </div>
-      <div className="text-2xl font-bold text-gray-800">{value}</div>
-      <div className="text-sm text-gray-500">{label}</div>
+      <div className="text-2xl font-bold text-notion-text">{value}</div>
+      <div className="text-sm text-notion-muted">{label}</div>
     </div>
   );
 }

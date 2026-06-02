@@ -74,20 +74,20 @@ export default function PracticePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">生成练习卷</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-xl font-semibold text-notion-text">生成练习卷</h2>
+          <p className="text-sm text-notion-muted mt-1">
             已选择 {selectedIds.size} 道错题
           </p>
         </div>
         <div className="flex items-center gap-3">
           {/* Mode toggle */}
-          <div className="flex bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="flex bg-white rounded-notion border border-notion-border overflow-hidden">
             <button
               onClick={() => setMode("questions_only")}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
                 mode === "questions_only"
-                  ? "bg-primary-50 text-primary-700"
-                  : "text-gray-600 hover:bg-gray-50"
+                  ? "bg-notion-accent-bg text-notion-text"
+                  : "text-notion-muted hover:bg-notion-surface"
               }`}
             >
               <FileText size={14} />
@@ -97,8 +97,8 @@ export default function PracticePage() {
               onClick={() => setMode("full_analysis")}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
                 mode === "full_analysis"
-                  ? "bg-primary-50 text-primary-700"
-                  : "text-gray-600 hover:bg-gray-50"
+                  ? "bg-notion-accent-bg text-notion-text"
+                  : "text-notion-muted hover:bg-notion-surface"
               }`}
             >
               <ClipboardList size={14} />
@@ -107,8 +107,8 @@ export default function PracticePage() {
           </div>
 
           {/* Subject filter */}
-          <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
-            <Filter size={14} className="text-gray-400" />
+          <div className="flex items-center gap-2 bg-white rounded-notion border border-notion-border px-3 py-2">
+            <Filter size={14} className="text-notion-subtle" />
             <select
               value={filterSubject}
               onChange={(e) =>
@@ -136,7 +136,7 @@ export default function PracticePage() {
       </div>
 
       {/* Mode description */}
-      <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 mb-4 text-sm text-gray-600 shrink-0">
+      <div className="bg-white rounded-notion border border-notion-border px-4 py-3 mb-4 text-sm text-notion-muted shrink-0">
         {mode === "questions_only" ? (
           <>
             <span className="font-medium">仅原题模式:</span> 每道题底部预留笔记区，适合裁剪贴到错题本。不包含答案和解析。
@@ -149,28 +149,28 @@ export default function PracticePage() {
       </div>
 
       {/* Question list */}
-      <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 z-10">
+      <div className="flex-1 bg-white rounded-notion border border-notion-border overflow-auto">
+        <div className="sticky top-0 bg-white border-b border-notion-border px-4 py-3 flex items-center gap-3 z-10">
           <button
             onClick={toggleAll}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+            className="flex items-center gap-2 text-sm text-notion-muted hover:text-notion-text transition-colors"
           >
             {selectedIds.size === filteredQuestions.length && filteredQuestions.length > 0 ? (
-              <CheckSquare size={16} className="text-primary-600" />
+              <CheckSquare size={16} className="text-notion-muted" />
             ) : (
               <Square size={16} />
             )}
             全选
           </button>
-          <span className="text-sm text-gray-400">
+          <span className="text-sm text-notion-subtle">
             {filteredQuestions.length} 道错题
           </span>
         </div>
 
         {loading ? (
-          <div className="text-center text-gray-400 py-12">加载中...</div>
+          <div className="text-center text-notion-subtle py-12">加载中...</div>
         ) : filteredQuestions.length === 0 ? (
-          <div className="text-center text-gray-400 py-12">
+          <div className="text-center text-notion-subtle py-12">
             <BookOpen size={48} className="mx-auto mb-4" />
             <p>暂无错题</p>
           </div>
@@ -182,13 +182,13 @@ export default function PracticePage() {
                 onClick={() => toggleSelect(q.id)}
                 className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${
                   selectedIds.has(q.id)
-                    ? "bg-primary-50"
-                    : "hover:bg-gray-50"
+                    ? "bg-notion-accent-bg"
+                    : "hover:bg-notion-surface"
                 }`}
               >
                 <div className="mt-0.5 shrink-0">
                   {selectedIds.has(q.id) ? (
-                    <CheckSquare size={18} className="text-primary-600" />
+                    <CheckSquare size={18} className="text-notion-muted" />
                   ) : (
                     <Square size={18} className="text-gray-300" />
                   )}
@@ -204,7 +204,7 @@ export default function PracticePage() {
                     >
                       {subjectLabel(q.subject)}
                     </span>
-                    <span className="text-xs text-gray-400">{q.chapter}</span>
+                    <span className="text-xs text-notion-subtle">{q.chapter}</span>
                     {q.error_cause && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">
                         {q.error_cause === "concept"
@@ -219,7 +219,7 @@ export default function PracticePage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-700 line-clamp-2">{q.content}</p>
+                  <p className="text-sm text-notion-text line-clamp-2">{q.content}</p>
                 </div>
               </div>
             ))}

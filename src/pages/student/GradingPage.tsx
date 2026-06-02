@@ -231,8 +231,8 @@ export default function GradingPage() {
   return (
     <div className="h-full flex flex-col">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-800">练习批改</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <h2 className="text-xl font-semibold text-notion-text">练习批改</h2>
+        <p className="text-sm text-notion-muted mt-1">
           {confirmedCount} / {items.length} 题已确认
         </p>
       </div>
@@ -251,17 +251,17 @@ export default function GradingPage() {
         </div>
 
         {/* Right: Detail panel */}
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 p-4 overflow-auto">
+        <div className="flex-1 bg-white rounded-notion border border-notion-border p-4 overflow-auto">
           {activeItem ? (
             <div className="space-y-4">
               <div>
-                <div className="text-sm font-medium text-gray-800 mb-1">
+                <div className="text-sm font-medium text-notion-text mb-1">
                   题{activeItem.index + 1}
                   {activeItem.question.questionType === "subjective" && (
                     <span className="ml-2 text-xs text-orange-500">主观题</span>
                   )}
                 </div>
-                <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                <div className="text-sm text-notion-muted bg-notion-surface rounded-notion p-3">
                   {activeItem.question.content}
                 </div>
               </div>
@@ -272,7 +272,7 @@ export default function GradingPage() {
                 activeItem.status === "graded" ||
                 activeItem.status === "confirmed") &&
                 activeItem.photoPath && (
-                  <div className="border rounded-lg overflow-hidden">
+                  <div className="border rounded-notion overflow-hidden">
                     <img
                       src={`file://${activeItem.photoPath}`}
                       alt="答案照片"
@@ -283,7 +283,7 @@ export default function GradingPage() {
 
               {activeItem.status === "pending" && (
                 sessionId === null ? (
-                  <div className="text-center text-gray-400 py-8 text-sm">
+                  <div className="text-center text-notion-subtle py-8 text-sm">
                     准备批改会话中…
                   </div>
                 ) : (
@@ -306,7 +306,7 @@ export default function GradingPage() {
               )}
             </div>
           ) : (
-            <div className="text-center text-gray-400 py-12">请选择一道题</div>
+            <div className="text-center text-notion-subtle py-12">请选择一道题</div>
           )}
         </div>
       </div>
