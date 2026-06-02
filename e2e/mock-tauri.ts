@@ -38,6 +38,21 @@ const defaultHandlers: MockInvokeHandlers = {
     console.log("[MOCK] save_uploaded_photo:", { studentId, filename });
     return `/tmp/photos/${studentId}/mock-${filename}`;
   },
+
+  // Backup commands (no real FS in browser mode — return empty list / no-op)
+  list_local_snapshots: () => [],
+  create_local_snapshot: () => ({
+    path: "/tmp/mock-snapshot.db",
+    created_at: new Date().toISOString(),
+    size_bytes: 1024,
+  }),
+  restore_snapshot: () => null,
+  cleanup_old_snapshots: () => 0,
+  backup_to_sync_folder: () => ({
+    path: "/tmp/mock-sync/seeker.db",
+    created_at: new Date().toISOString(),
+    size_bytes: 1024,
+  }),
 };
 
 /**
