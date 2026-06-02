@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS review_schedule (
 
 -- Migration: add content_html if not exists (safe to re-run)
 ALTER TABLE questions ADD COLUMN content_html TEXT;
+ALTER TABLE questions ADD COLUMN solution_approach TEXT;
+ALTER TABLE questions ADD COLUMN solution_steps TEXT;
 
 CREATE TABLE IF NOT EXISTS app_config (
   key TEXT PRIMARY KEY,
