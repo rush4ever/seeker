@@ -7,9 +7,19 @@ interface Props {
   tree: KnowledgeTreeNode[];
   selectedId?: number;
   onSelect: (node: KnowledgeTreeNode) => void;
+  multiSelect?: boolean;
+  selectedIds?: Set<number>;
+  onToggle?: (id: number) => void;
 }
 
-export default function KnowledgeTree({ tree, selectedId, onSelect }: Props) {
+export default function KnowledgeTree({
+  tree,
+  selectedId,
+  onSelect,
+  multiSelect,
+  selectedIds,
+  onToggle,
+}: Props) {
   return (
     <div className="space-y-0.5">
       {tree.map((root) => (
@@ -19,6 +29,9 @@ export default function KnowledgeTree({ tree, selectedId, onSelect }: Props) {
           depth={0}
           selectedId={selectedId}
           onSelect={onSelect}
+          multiSelect={multiSelect}
+          selectedIds={selectedIds}
+          onToggle={onToggle}
         />
       ))}
     </div>
@@ -30,11 +43,17 @@ function TreeNode({
   depth,
   selectedId,
   onSelect,
+  multiSelect,
+  selectedIds,
+  onToggle,
 }: {
   item: KnowledgeTreeNode;
   depth: number;
   selectedId?: number;
   onSelect: (node: KnowledgeTreeNode) => void;
+  multiSelect?: boolean;
+  selectedIds?: Set<number>;
+  onToggle?: (id: number) => void;
 }) {
   const [expanded, setExpanded] = useState(depth < 2);
   const hasChildren = item.children.length > 0;
@@ -60,6 +79,20 @@ function TreeNode({
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={() => onSelect(item)}
       >
+        {/* Multi-select checkbox */}
+        {multiSelect && (
+          <input
+            type="checkbox"
+            checked={selectedIds?.has(item.node.id) ?? false}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggle?.(item.node.id);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-3.5 h-3.5 shrink-0"
+          />
+        )}
+
         {/* Expand/collapse toggle */}
         <button
           onClick={(e) => {
@@ -123,6 +156,9 @@ function TreeNode({
               depth={depth + 1}
               selectedId={selectedId}
               onSelect={onSelect}
+              multiSelect={multiSelect}
+              selectedIds={selectedIds}
+              onToggle={onToggle}
             />
           ))}
         </div>
