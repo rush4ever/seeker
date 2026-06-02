@@ -18,6 +18,7 @@ function makeQuestion(overrides: Partial<Question> = {}): Question {
     chapter: "分式的乘除",
     answer_date: "2026-05-14",
     content: "计算: (a/b) * (c/d)",
+    content_html: null,
     content_images: null,
     student_answer: "错误答案",
     correct_answer: "ac/bd",

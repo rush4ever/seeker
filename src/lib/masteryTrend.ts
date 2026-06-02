@@ -66,7 +66,6 @@ function formatWeekLabel(weekStr: string): string {
   const match = weekStr.match(/(\d{4})-W(\d{2})/);
   if (!match) return weekStr;
 
-  const year = parseInt(match[1], 10);
   const weekNum = parseInt(match[2], 10);
 
   // Approximate month from week number

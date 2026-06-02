@@ -4,7 +4,7 @@ import {
   formatWeakPointNames,
   buildQuickPracticeQuery,
 } from "./quickPractice";
-import type { KnowledgeStat } from "../types";
+import type { KnowledgeStat } from "./scheduler";
 
 describe("buildQuickPracticeTitle", () => {
   it("returns default title when no weak points", () => {

@@ -44,7 +44,7 @@ describe("buildTopWeakPointsQuery", () => {
   });
 
   it("uses custom limit", () => {
-    const { sql, params } = buildTopWeakPointsQuery(42, 10);
+    const { params } = buildTopWeakPointsQuery(42, 10);
     expect(params).toEqual([42, 10]);
   });
 });

@@ -1,4 +1,5 @@
-import type { Question, KnowledgeStat } from "../types";
+import type { Question } from "../types";
+import type { KnowledgeStat } from "./scheduler";
 
 export interface QuickPracticeResult {
   questions: Question[];

@@ -19,6 +19,7 @@ function makeQuestion(overrides: Partial<Question> = {}): Question {
     chapter: "分式",
     answer_date: "2026-05-14",
     content: "题",
+    content_html: null,
     content_images: null,
     student_answer: null,
     correct_answer: "A",

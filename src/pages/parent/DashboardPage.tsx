@@ -204,7 +204,7 @@ export default function DashboardPage() {
                   label={{ value: '掌握度 %', angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#6b7280' } }}
                 />
                 <Tooltip
-                  formatter={(value: number) => [`${value}%`, '']}
+                  formatter={(value: any) => [`${value}%`, '']}
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px' }} />

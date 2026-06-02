@@ -2,9 +2,6 @@ import type Database from "@tauri-apps/plugin-sql";
 
 type TauriDatabase = InstanceType<typeof Database>;
 
-let dbInstance: TauriDatabase | SqlJsAdapter | null = null;
-let initPromise: Promise<TauriDatabase | SqlJsAdapter> | null = null;
-
 // Detect Tauri environment
 function isTauri(): boolean {
   return typeof window !== "undefined" && !!(window as any).__TAURI__;
