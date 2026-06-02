@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
 import EmptyState from "../../components/common/EmptyState";
+import ExamPrepPanel from "../../components/practice/ExamPrepPanel";
 
 function subjectLabel(s: Subject): string {
   return s === "math" ? "数学" : "物理";
@@ -22,8 +23,13 @@ export default function PracticePage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [mode, setMode] = useState<PracticeMode>("questions_only");
+  // Export mode (which kind of practice sheet to render).
+  const [exportMode, setExportMode] = useState<PracticeMode>("questions_only");
   const [filterSubject, setFilterSubject] = useState<Subject | "all">("all");
+  // Practice mode: 日常 list-and-export, or 考前 knowledge-point driven.
+  const [practiceMode, setPracticeMode] = useState<"daily" | "exam">("daily");
+  const [examKps, setExamKps] = useState<Set<number>>(new Set());
+  const [examQuestions, setExamQuestions] = useState<Question[]>([]);
 
   // Load questions
   useEffect(() => {
@@ -73,19 +79,46 @@ export default function PracticePage() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 shrink-0">
-        <div>
-          <h2 className="text-xl font-semibold text-notion-text">生成练习卷</h2>
-          <p className="text-sm text-notion-muted mt-1">
-            已选择 {selectedIds.size} 道错题
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-notion-text">生成练习卷</h2>
+            <p className="text-sm text-notion-muted mt-1">
+              {practiceMode === "daily"
+                ? `已选择 ${selectedIds.size} 道错题`
+                : `已选 ${examKps.size} 个知识点`}
+            </p>
+          </div>
+          {/* Practice-mode segmented control: 日常 / 考前 */}
+          <div className="inline-flex border border-notion-border rounded-notion overflow-hidden text-sm">
+            <button
+              onClick={() => setPracticeMode("daily")}
+              className={`px-3 py-1 ${
+                practiceMode === "daily"
+                  ? "bg-notion-accent-bg text-notion-text"
+                  : "text-notion-muted hover:bg-notion-surface"
+              }`}
+            >
+              日常
+            </button>
+            <button
+              onClick={() => setPracticeMode("exam")}
+              className={`px-3 py-1 ${
+                practiceMode === "exam"
+                  ? "bg-notion-accent-bg text-notion-text"
+                  : "text-notion-muted hover:bg-notion-surface"
+              }`}
+            >
+              考前
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {/* Mode toggle */}
           <div className="flex bg-white rounded-notion border border-notion-border overflow-hidden">
             <button
-              onClick={() => setMode("questions_only")}
+              onClick={() => setExportMode("questions_only")}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
-                mode === "questions_only"
+                exportMode === "questions_only"
                   ? "bg-notion-accent-bg text-notion-text"
                   : "text-notion-muted hover:bg-notion-surface"
               }`}
@@ -94,9 +127,9 @@ export default function PracticePage() {
               仅原题
             </button>
             <button
-              onClick={() => setMode("full_analysis")}
+              onClick={() => setExportMode("full_analysis")}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
-                mode === "full_analysis"
+                exportMode === "full_analysis"
                   ? "bg-notion-accent-bg text-notion-text"
                   : "text-notion-muted hover:bg-notion-surface"
               }`}
@@ -122,13 +155,13 @@ export default function PracticePage() {
             </select>
           </div>
 
-          {/* Export buttons */}
-          {currentStudent && (
+          {/* Export buttons (daily mode only — exam panel has its own) */}
+          {currentStudent && practiceMode === "daily" && (
             <ExportButtonGroup
               questions={selectedQuestions}
               studentName={currentStudent.name}
-              mode={mode}
-              title={mode === "questions_only" ? "错题练习卷" : "错题分析卷"}
+              mode={exportMode}
+              title={exportMode === "questions_only" ? "错题练习卷" : "错题分析卷"}
               disabled={selectedIds.size === 0}
             />
           )}
@@ -137,7 +170,7 @@ export default function PracticePage() {
 
       {/* Mode description */}
       <div className="bg-white rounded-notion border border-notion-border px-4 py-3 mb-4 text-sm text-notion-muted shrink-0">
-        {mode === "questions_only" ? (
+        {exportMode === "questions_only" ? (
           <>
             <span className="font-medium">仅原题模式:</span> 每道题底部预留笔记区，适合裁剪贴到错题本。不包含答案和解析。
           </>
@@ -148,8 +181,26 @@ export default function PracticePage() {
         )}
       </div>
 
-      {/* Question list */}
-      <div className="flex-1 bg-white rounded-notion border border-notion-border overflow-auto">
+      {/* Body: daily list or exam-prep panel */}
+      {practiceMode === "exam" ? (
+        <ExamPrepPanel
+          studentId={currentStudent.id}
+          subject={filterSubject === "all" ? "math" : filterSubject}
+          selectedKps={examKps}
+          onToggleKp={(id) =>
+            setExamKps((s) => {
+              const next = new Set(s);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })
+          }
+          questions={examQuestions}
+          onQuestionsChange={setExamQuestions}
+          studentName={currentStudent.name}
+        />
+      ) : (
+        <div className="flex-1 bg-white rounded-notion border border-notion-border overflow-auto">
         <div className="sticky top-0 bg-white border-b border-notion-border px-4 py-3 flex items-center gap-3 z-10">
           <button
             onClick={toggleAll}
@@ -225,7 +276,8 @@ export default function PracticePage() {
             ))}
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
