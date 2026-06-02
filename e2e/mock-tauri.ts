@@ -74,6 +74,11 @@ export function generateMockScript(handlers: MockInvokeHandlers = {}): string {
         const fn = eval('(' + handlers[cmd] + ')');
         return fn(args || {});
       }
+      // plugin-dialog fallback: save() returns a fake path so the export
+      // flow proceeds end-to-end in browser mode
+      if (cmd === 'plugin:dialog|save' || cmd === 'plugin:dialog|open') {
+        return '/tmp/mock-' + Date.now() + (cmd.endsWith('save') ? '.pdf' : '');
+      }
       console.warn('[MOCK] Unhandled Tauri command:', cmd, args);
       return null;
     };

@@ -67,7 +67,13 @@ mod tests {
         let short = make_question("解方程: 2x = 4");
         assert!(is_short_question(&short));
 
-        let long = make_question("已知函数 f(x) = x^2 + 2x + 1，求其在区间 [-2, 2] 上的最大值和最小值，并说明取得最值时的 x 值。");
+        // 120 字符以上才算"长"题
+        let long = make_question(
+            "已知函数 f(x) = x^2 + 2x + 1，求其在区间 [-2, 2] 上的最大值和最小值，\
+             并说明取得最值时的 x 值，进一步分析该函数的单调性与极值点的关系，\
+             最后画出函数图像并标注关键点。这是一个综合性的函数题目，\
+             涉及配方法、求导与端点分析等多项技能，需要写出完整规范的解答过程。",
+        );
         assert!(!is_short_question(&long));
     }
 
@@ -87,24 +93,37 @@ mod tests {
 
     #[test]
     fn test_layout_long_question_gets_own_row() {
+        let long = make_question(
+            "已知函数 f(x) = x^2 + 2x + 1，求其在区间 [-2, 2] 上的最大值和最小值，\
+             并说明取得最值时的 x 值，进一步分析该函数的单调性与极值点的关系，\
+             最后画出函数图像并标注关键点。这是一个综合性的函数题目，\
+             涉及配方法、求导与端点分析等多项技能，需要写出完整规范的解答过程。",
+        );
         let questions = vec![
             make_question("短题1"),
-            make_question("这是一个非常长的题目内容，超过了120个字符的限制，所以应该独占一行。已知函数 f(x) = x^2 + 2x + 1，求其在区间 [-2, 2] 上的最大值和最小值。"),
+            long,
             make_question("短题2"),
         ];
 
         let rows = layout_questions(&questions);
         assert_eq!(rows.len(), 3);
-        assert_eq!(rows[0].len(), 1); // 短题1 单独（因为长题紧随其后，算法可能不同）
-        // Actually, let me reconsider...
+        assert_eq!(rows[0].len(), 1); // 短题1 单独
+        assert_eq!(rows[1].len(), 1); // 长题独占
+        assert_eq!(rows[2].len(), 1); // 短题2 单独
     }
 
     #[test]
     fn test_layout_mixed() {
+        let long = make_question(
+            "已知函数 f(x) = x^2 + 2x + 1，求其在区间 [-2, 2] 上的最大值和最小值，\
+             并说明取得最值时的 x 值，进一步分析该函数的单调性与极值点的关系，\
+             最后画出函数图像并标注关键点。这是一个综合性的函数题目，\
+             涉及配方法、求导与端点分析等多项技能，需要写出完整规范的解答过程。",
+        );
         let questions = vec![
             make_question("短题1"),
             make_question("短题2"),
-            make_question("这是一个非常长的题目内容，超过了120个字符的限制，所以应该独占一行。"),
+            long,
             make_question("短题3"),
             make_question("短题4"),
         ];
