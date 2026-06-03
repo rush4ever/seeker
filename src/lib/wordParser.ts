@@ -212,14 +212,82 @@ async function parseImagesInHtml(
     }
   }
 
-  const text = updatedHtml
-    .replace(/<img[^>]*class="inline-formula"[^>]*>/g, " [图] ")
-    .replace(/<span class="image-desc"[^>]*>(.*?)<\/span>/g, " $1 ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const text = cleanLatexDelimiters(
+    updatedHtml
+      .replace(/<img[^>]*class="inline-formula"[^>]*>/g, " [图] ")
+      .replace(/<span class="image-desc"[^>]*>(.*?)<\/span>/g, " $1 ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
 
   return { updatedHtml, text, images };
+}
+
+/**
+ * Clean stray / malformed $...$ delimiters in the plain-text view of a
+ * question. The vision model (qwen2.5vl) is asked to wrap inline math
+ * in $...$ but often:
+ *  - wraps the WHOLE identified text (including Chinese stem) in $...$
+ *  - emits a single dangling $ (opened without closing)
+ *  - mismatches the number of $ in a paragraph
+ *
+ * The plain text field is rendered on list cards WITHOUT KaTeX, so a
+ * stray $ leaks through as a visible dollar sign. Strategy:
+ *  - If a $...$ pair is "too greedy" (covers ≥ 70% of the trimmed text),
+ *    unwrap it (the whole line got swallowed).
+ *  - Any remaining un-paired $ is removed.
+ *  - The HTML view (content_html) is NOT touched — it still feeds MathContent.
+ */
+function cleanLatexDelimiters(s: string): string {
+  if (!s || !s.includes("$")) return s;
+
+  // 1. Detect the "whole text got wrapped" case: text starts with $ and
+  //    contains a closing $ near the end (within last 6 chars). Unwrap.
+  const unwrapMatch = s.match(/^\s*\$([\s\S]+?)\$\s*$/);
+  if (unwrapMatch) {
+    const inner = unwrapMatch[1].trim();
+    // Only unwrap if it actually swallowed most of the text
+    if (inner.length / s.trim().length >= 0.7) {
+      s = inner;
+    }
+  }
+
+  // 2. Drop any remaining un-paired or leading/trailing $ (count parity check).
+  //    Walk through $ positions; only keep $ that has a matching pair AND
+  //    the inner content looks like math (contains one of: \frac, \sqrt,
+  //    ^, _, =, +, -, \, \pi, \sum, \int). Otherwise drop the $ entirely.
+  const dollarPositions: number[] = [];
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "$") dollarPositions.push(i);
+  }
+  if (dollarPositions.length === 0) return s;
+  if (dollarPositions.length % 2 === 1) {
+    // odd count → drop ALL $ (defensive: vision output is unreliable)
+    return s.replace(/\$/g, "");
+  }
+
+  // 3. Even count: keep only pairs whose inner content looks like LaTeX.
+  const looksLikeMath = (inner: string) =>
+    /\\frac|\\sqrt|\^|_|\\pi|\\sum|\\int|\\times|\\div|\\pm/.test(inner);
+  let result = "";
+  let cursor = 0;
+  for (let i = 0; i < dollarPositions.length; i += 2) {
+    const openAt = dollarPositions[i];
+    const closeAt = dollarPositions[i + 1];
+    // Append text before this pair
+    result += s.slice(cursor, openAt);
+    const inner = s.slice(openAt + 1, closeAt);
+    if (looksLikeMath(inner)) {
+      result += "$" + inner + "$";
+    } else {
+      // Drop the $, keep the inner text (probably plain text mistakenly wrapped)
+      result += inner;
+    }
+    cursor = closeAt + 1;
+  }
+  result += s.slice(cursor);
+  return result;
 }
 
 function renderInlineMath(text: string): string {
