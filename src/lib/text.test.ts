@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanLatexDelimiters } from "./text";
+import { cleanLatexDelimiters, cleanLatexDelimitersInHtml } from "./text";
 
 describe("cleanLatexDelimiters", () => {
   it("returns input unchanged when no $ present", () => {
@@ -55,4 +55,15 @@ describe("cleanLatexDelimiters", () => {
     expect(out).toContain("化简");
     expect(out).toContain("的值");
   });
+});
+
+describe("cleanLatexDelimitersInHtml (DOM-only — skipped in Node)", () => {
+  it("returns input unchanged when no $ present", () => {
+    expect(cleanLatexDelimitersInHtml("<p>解方程 2x+5=13</p>")).toBe(
+      "<p>解方程 2x+5=13</p>",
+    );
+  });
+  // Browser-only behavioral tests live in e2e/10 — vitest in Node has no
+  // DOMParser. The 10-latex-cleanup e2e covers the content_html path
+  // with the exact user-reported bug string.
 });

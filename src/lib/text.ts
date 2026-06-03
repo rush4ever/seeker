@@ -93,3 +93,40 @@ function hasMatchingDollarPair(s: string): boolean {
   if (first === -1) return false;
   return s.indexOf("$", first + 1) !== -1;
 }
+
+/**
+ * Apply cleanLatexDelimiters to every text node inside an HTML string.
+ *
+ * Word import populates `content_html` with the same vision-model
+ * pollution as `content` — stray $ in Chinese-stem text nodes. We
+ * can't just regex-replace $ out of the HTML (would break tag attrs /
+ * legit $ in <script> etc.), so we parse it, walk text nodes, and
+ * re-serialize. Safe because:
+ *  - We only touch Text node .nodeValue
+ *  - Element / Comment / Attribute nodes are untouched
+ *  - DOMParser is sandboxed, no execution side-effects
+ *
+ * If parsing fails (browser-only — DOMParser doesn't exist in
+ * bare Node tests) we return the input unchanged.
+ */
+export function cleanLatexDelimitersInHtml(html: string): string {
+  if (!html || !html.includes("$")) return html;
+  if (typeof DOMParser === "undefined") return html;
+
+  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+  const root = doc.body;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  let n: Node | null;
+  while ((n = walker.nextNode())) textNodes.push(n as Text);
+
+  for (const node of textNodes) {
+    const original = node.nodeValue;
+    if (!original || !original.includes("$")) continue;
+    const cleaned = cleanLatexDelimiters(original);
+    if (cleaned !== original) node.nodeValue = cleaned;
+  }
+
+  // Serialize the body back. .innerHTML omits the <body> wrapper.
+  return root.innerHTML;
+}

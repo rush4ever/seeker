@@ -13,7 +13,7 @@ import { updateMastery, checkGraduationStatus, masteryBarClass } from "../../lib
 import type { Question, Subject, SimilarQuestion } from "../../types";
 import EmptyState from "../../components/common/EmptyState";
 import { MathContent } from "../../components/common/MathContent";
-import { cleanLatexDelimiters } from "../../lib/text";
+import { cleanLatexDelimiters, cleanLatexDelimitersInHtml } from "../../lib/text";
 import {
   FileUp,
   Filter,
@@ -654,7 +654,9 @@ function QuestionCard({
             <div
               className="text-notion-text line-clamp-2 cursor-pointer"
               onClick={() => setShowDetail(true)}
-              dangerouslySetInnerHTML={{ __html: question.content_html }}
+              dangerouslySetInnerHTML={{
+                __html: cleanLatexDelimitersInHtml(question.content_html),
+              }}
             />
           ) : (
             <p
@@ -806,7 +808,9 @@ function QuestionCard({
                 {question.content_html ? (
                   <div
                     className="text-notion-text text-base leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: question.content_html }}
+                    dangerouslySetInnerHTML={{
+                      __html: cleanLatexDelimitersInHtml(question.content_html),
+                    }}
                   />
                 ) : (
                   <p className="text-notion-text text-base leading-relaxed whitespace-pre-wrap">
