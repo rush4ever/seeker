@@ -5,12 +5,14 @@ import { getWeakestKnowledgePoints, type KnowledgeStat } from "../../lib/schedul
 import { buildQuickPracticeTitle, formatWeakPointNames } from "../../lib/quickPractice";
 import type { Question } from "../../types";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
+import { useToast } from "../../components/common/useToast";
 import { Target, BookOpen, Brain, ArrowRight, TrendingUp, Loader2 } from "lucide-react";
 import { masteryTextClass, masteryBarClass } from "../../lib/mastery";
 import EmptyState from "../../components/common/EmptyState";
 
 export default function HomePage() {
   const { currentStudent, setActivePage } = useApp();
+  const toast = useToast();
   const [weakPoints, setWeakPoints] = useState<KnowledgeStat[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalQuestions, setTotalQuestions] = useState(0);
@@ -92,7 +94,7 @@ export default function HomePage() {
       setPracticeQuestions(questions);
     } catch (err) {
       console.error("Quick practice failed:", err);
-      alert("加载快练题目失败");
+      toast.error("加载快练题目失败");
     } finally {
       setPracticeLoading(false);
     }

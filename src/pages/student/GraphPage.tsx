@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useApp } from "../../context/AppContext";
 import { useKnowledgeGraph } from "../../hooks/useKnowledgeGraph";
 import KnowledgeTree from "../../components/graph/KnowledgeTree";
+import { useToast } from "../../components/common/useToast";
 import type { KnowledgeTreeNode, Subject } from "../../types";
 import { BookOpen, Brain, Filter, Dumbbell, Loader2 } from "lucide-react";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
@@ -239,6 +240,7 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
   const hasQuestions = kn.question_count > 0;
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   const handleGeneratePractice = async () => {
     setLoading(true);
@@ -247,7 +249,7 @@ function NodeDetail({ node, studentId }: { node: KnowledgeTreeNode; studentId: n
       setQuestions(qs);
     } catch (err) {
       console.error("Failed to fetch questions:", err);
-      alert("加载错题失败");
+      toast.error("加载错题失败");
     } finally {
       setLoading(false);
     }

@@ -12,6 +12,27 @@ const defaultHandlers: MockInvokeHandlers = {
   // Student commands
   list_students: () => [],
 
+  // Dialog plugin — used by @tauri-apps/plugin-dialog's save() in the
+  // export flow. Returns a fake path that preserves the suggested
+  // extension so callers can detect the chosen format.
+  "plugin:dialog|save": (args: { defaultPath?: string; options?: { defaultPath?: string } }) => {
+    // Tauri 2 wraps the options object: invoke(cmd, { options: {...} })
+    const dp = args?.defaultPath ?? args?.options?.defaultPath;
+    const ext = dp?.split(".").pop() ?? "pdf";
+    return `/tmp/mock-${Date.now()}.${ext}`;
+  },
+  "plugin:dialog|open": () => `/tmp/mock-open-${Date.now()}`,
+
+  // Opener plugin — used to "open file" after export
+  "plugin:opener|open_path": ({ path }: { path: string }) => {
+    console.log("[MOCK] opener.open_path:", path);
+    return null;
+  },
+  "plugin:opener|reveal_item_in_dir": ({ path }: { path: string }) => {
+    console.log("[MOCK] opener.reveal_item_in_dir:", path);
+    return null;
+  },
+
   // Export commands
   export_pdf: ({ request }: { request: { title: string } }) => {
     console.log("[MOCK] export_pdf:", request.title);
@@ -73,11 +94,6 @@ export function generateMockScript(handlers: MockInvokeHandlers = {}): string {
       if (handlers[cmd]) {
         const fn = eval('(' + handlers[cmd] + ')');
         return fn(args || {});
-      }
-      // plugin-dialog fallback: save() returns a fake path so the export
-      // flow proceeds end-to-end in browser mode
-      if (cmd === 'plugin:dialog|save' || cmd === 'plugin:dialog|open') {
-        return '/tmp/mock-' + Date.now() + (cmd.endsWith('save') ? '.pdf' : '');
       }
       console.warn('[MOCK] Unhandled Tauri command:', cmd, args);
       return null;

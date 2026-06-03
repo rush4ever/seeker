@@ -2,8 +2,14 @@ import { useState } from "react";
 import { FileText, FileSpreadsheet, Loader2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
+import { openPath } from "@tauri-apps/plugin-opener";
 import type { ExportRequest, PracticeMode, Question } from "../../types";
 import { getDb } from "../../lib/db";
+import { isTauriRuntime } from "../../lib/env";
+import { saveBrowserFile } from "../../lib/download";
+import { generateBrowserPdf } from "../../lib/export/browserPdf";
+import { generateBrowserWord } from "../../lib/export/browserWord";
+import { useToast } from "../common/useToast";
 
 interface Props {
   questions: Question[];
@@ -82,38 +88,54 @@ export default function ExportButtonGroup({
   disabled,
 }: Props) {
   const [exporting, setExporting] = useState<"pdf" | "word" | null>(null);
+  const toast = useToast();
 
   const handleExport = async (format: "pdf" | "word") => {
     if (questions.length === 0) return;
     setExporting(format);
 
     try {
-      const extension = format === "pdf" ? "pdf" : "docx";
-      const defaultName = `${title}-${new Date().toISOString().slice(0, 10)}.${extension}`;
-
-      const path = await save({
-        defaultPath: defaultName,
-        filters:
-          format === "pdf"
-            ? [{ name: "PDF", extensions: ["pdf"] }]
-            : [{ name: "Word", extensions: ["docx"] }],
-      });
-
-      if (!path) {
-        setExporting(null);
-        return;
-      }
+      const ext = format === "pdf" ? "pdf" : "docx";
+      const suggestedName = `${title}-${new Date().toISOString().slice(0, 10)}.${ext}`;
 
       const questionIds = questions.map((q) => q.id);
       const knowledgeMap = await loadKnowledgePoints(questionIds);
       const request = buildExportRequest(questions, studentName, mode, title, knowledgeMap);
-      const command = format === "pdf" ? "export_pdf" : "export_word";
-      await invoke(command, { request, path });
 
-      alert(`已导出: ${path}`);
+      if (isTauriRuntime()) {
+        // Tauri path: native save dialog → Rust command writes the file.
+        const path = await save({
+          defaultPath: suggestedName,
+          filters:
+            format === "pdf"
+              ? [{ name: "PDF", extensions: ["pdf"] }]
+              : [{ name: "Word", extensions: ["docx"] }],
+        });
+        if (!path) return; // user cancelled
+
+        const command = format === "pdf" ? "export_pdf" : "export_word";
+        await invoke(command, { request, path });
+
+        toast.success("已导出", {
+          description: path,
+          action: { label: "打开", onClick: () => openPath(path).catch(console.error) },
+        });
+      } else {
+        // Browser path: generate the file in JS and trigger download.
+        const blob =
+          format === "pdf"
+            ? await generateBrowserPdf(request)
+            : await generateBrowserWord(request);
+        const { saved, displayName } = await saveBrowserFile(blob, suggestedName);
+        if (!saved) return; // user cancelled picker
+
+        toast.success("已下载", { description: displayName });
+      }
     } catch (err) {
       console.error("Export failed:", err);
-      alert(`导出失败: ${err}`);
+      toast.error("导出失败", {
+        description: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setExporting(null);
     }

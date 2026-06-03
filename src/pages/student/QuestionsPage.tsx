@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
 import ManualAddQuestionForm from "../../components/question/ManualAddQuestionForm";
+import { useToast } from "../../components/common/useToast";
 
 function subjectLabel(s: Subject): string {
   return s === "math" ? "数学" : "物理";
@@ -50,6 +51,7 @@ function arrayBufferToBase64(data: Uint8Array): string {
 
 export default function QuestionsPage() {
   const { currentStudent } = useApp();
+  const toast = useToast();
   const { questions, loading, addQuestions, remove, refresh } =
     useQuestions(currentStudent?.id);
   const [importing, setImporting] = useState(false);
@@ -116,7 +118,7 @@ export default function QuestionsPage() {
           subject: guessedSubject,
         });
       } catch (err) {
-        alert(`导入失败: ${err instanceof Error ? err.message : String(err)}`);
+        toast.error("导入失败", { description: err instanceof Error ? err.message : String(err) });
       } finally {
         setImporting(false);
         setImportProgress(null);
@@ -168,7 +170,7 @@ export default function QuestionsPage() {
       await addQuestions(newQuestions);
       setPendingImport(null);
     } catch (err) {
-      alert(`导入失败: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error("导入失败", { description: err instanceof Error ? err.message : String(err) });
     } finally {
       setImporting(false);
     }
@@ -305,7 +307,7 @@ export default function QuestionsPage() {
     await refresh();
 
     if (failed > 0) {
-      alert(`批量分析完成: ${success} 成功, ${failed} 失败`);
+      toast.info("批量分析完成", { description: `${success} 成功, ${failed} 失败` });
     }
   }, [unanalyzedQuestions, checkOllama, refresh]);
 

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Toaster } from "sonner";
 import { useApp } from "./context/AppContext";
 import { seedKnowledgeTree } from "./lib/knowledgeTree";
 import AppShell from "./components/layout/AppShell";
@@ -39,10 +40,24 @@ export default function App() {
   }, []);
 
   return (
-    <AppShell>
-      {roleMode === "student"
-        ? <StudentRouter page={activePage} />
-        : <ParentRouter page={activePage} />}
-    </AppShell>
+    <>
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{
+          classNames: {
+            toast: "border border-gray-200 shadow-lg",
+            title: "font-medium",
+            description: "text-xs text-gray-600",
+          },
+        }}
+      />
+      <AppShell>
+        {roleMode === "student"
+          ? <StudentRouter page={activePage} />
+          : <ParentRouter page={activePage} />}
+      </AppShell>
+    </>
   );
 }

@@ -47,23 +47,32 @@ test.describe("浏览器模式（无 fixture）导出", () => {
     await page.click("text=错题本");
     await page.waitForTimeout(400);
 
-    // 3. Click PDF export and capture the alert.
-    let alertText = "";
-    page.once("dialog", async (dialog) => {
-      alertText = dialog.message();
+    // 3. Track any native dialogs (should NEVER fire — the export flow
+    //    uses sonner toast now).
+    const nativeDialogs: string[] = [];
+    page.on("dialog", async (dialog) => {
+      nativeDialogs.push(dialog.message());
       await dialog.dismiss();
     });
 
-    await page.locator('button:has-text("导出 PDF")').click();
-    await page.waitForTimeout(800);
+    // 4. Force the <a download> fallback so we don't have to dismiss
+    //    a real showSaveFilePicker in Playwright Chromium.
+    await page.evaluate(() => {
+      delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    });
 
-    // 4. Symptom: previously the alert read
+    // 5. Click PDF export and wait for the success toast.
+    await page.locator('button:has-text("导出 PDF")').click();
+    const toast = page.locator('[data-sonner-toast]').first();
+    await expect(toast).toBeVisible({ timeout: 8000 });
+    const toastText = await toast.innerText();
+
+    // 6. Symptom (before the fix): alert would read
     //    "导出失败: TypeError: Cannot read properties of undefined
-    //     (reading 'invoke')"
-    expect(alertText).not.toContain("TypeError");
-    expect(alertText).not.toContain("reading 'invoke'");
-    // The browser-mode mock should make the chain complete and report a
-    // successful export.
-    expect(alertText).toMatch(/已导出/);
+    //     (reading 'invoke')". Now we get a successful export toast.
+    expect(nativeDialogs).toEqual([]);
+    expect(toastText).not.toContain("TypeError");
+    expect(toastText).not.toContain("reading 'invoke'");
+    expect(toastText).toMatch(/已下载/);
   });
 });
