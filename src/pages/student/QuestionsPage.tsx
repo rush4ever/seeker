@@ -13,6 +13,7 @@ import { updateMastery, checkGraduationStatus, masteryBarClass } from "../../lib
 import type { Question, Subject, SimilarQuestion } from "../../types";
 import EmptyState from "../../components/common/EmptyState";
 import { MathContent } from "../../components/common/MathContent";
+import { cleanLatexDelimiters } from "../../lib/text";
 import {
   FileUp,
   Filter,
@@ -660,7 +661,7 @@ function QuestionCard({
               className="text-notion-text line-clamp-2 cursor-pointer whitespace-pre-wrap"
               onClick={() => setShowDetail(true)}
             >
-              {question.content}
+              {cleanLatexDelimiters(question.content)}
             </p>
           )}
 
@@ -809,7 +810,7 @@ function QuestionCard({
                   />
                 ) : (
                   <p className="text-notion-text text-base leading-relaxed whitespace-pre-wrap">
-                    {question.content}
+                    {cleanLatexDelimiters(question.content)}
                   </p>
                 )}
               </section>

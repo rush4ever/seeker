@@ -90,14 +90,9 @@ describe("splitQuestions", () => {
  * via parseWordDocument's `text` output. We test the helper through a
  * tiny synthetic HTML that the parser will turn into the same shape.
  */
-import { parseWordDocument } from "./wordParser";
-import { describe as _desc, it as _it, expect as _expect } from "vitest";
+import { describe as _desc, it as _it } from "vitest";
 _desc("cleanLatexDelimiters (via parseWordDocument text output)", () => {
   _it("strips a single dangling $ at the end", async () => {
-    // Synthesize a File-like blob from a tiny docx-shaped HTML
-    // We can't easily run mammoth on a string, so we just call the helper
-    // indirectly by constructing a File from a pre-built docx. Easiest
-    // path: import the helper directly.
     const mod = await import("./wordParser");
     // Use a TS trick: cast to access internal
     const fn = (mod as unknown as { cleanLatexDelimiters?: (s: string) => string })
