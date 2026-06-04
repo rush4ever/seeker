@@ -224,16 +224,15 @@ async function parseImagesInHtml(
     }
   }
 
-  // For inline-formula images, leave the same marker in the text so
-  // the user can see WHERE the image was in the math expression.
-  // A real torn corner in the source .docx (the user's reported case)
-  // is an inline image; without this marker, "(-1) × …" loses all
-  // context for the missing character. See ./textMarkers.ts for
-  // the strategy rationale.
+  // For vision-described images, mark the position in the text so
+  // the user always sees where content was machine-recognized.
+  // The [图: desc] format is already handled by MathContent (unwraps
+  // to just desc in rich view) and cleanLatexDelimiters (passes
+  // through unchanged).
   const text = cleanLatexDelimiters(
     updatedHtml
       .replace(INLINE_FORMULA_IMG_RE, INLINE_IMAGE_MARKER)
-      .replace(/<span class="image-desc"[^>]*>(.*?)<\/span>/g, " $1 ")
+      .replace(/<span class="image-desc"[^>]*>(.*?)<\/span>/g, "[图: $1] ")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim(),
