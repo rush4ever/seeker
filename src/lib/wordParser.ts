@@ -209,7 +209,7 @@ async function parseImagesInHtml(
       const name = `q${questionNum}_img${imgIndex}.${ext}`;
       updatedHtml = updatedHtml.replace(
         m.fullTag,
-        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" style="height:1.3em;display:inline-block;vertical-align:middle;border-radius:2px;" />`
+        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" alt="${INLINE_IMAGE_MARKER}" style="height:1.3em;display:inline-block;vertical-align:middle;border-radius:2px;" />`
       );
       const base64Content = m.base64Src.split(",")[1];
       const data = Uint8Array.from(atob(base64Content), (c) =>

@@ -873,12 +873,25 @@ function QuestionCard({
                   题目
                 </h3>
                 {question.content_html ? (
-                  <div
-                    className="text-notion-text text-base leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: cleanLatexDelimitersInHtml(question.content_html),
-                    }}
-                  />
+                  <>
+                    <div
+                      className="text-notion-text text-base leading-relaxed"
+                      dangerouslySetInnerHTML={{
+                        __html: cleanLatexDelimitersInHtml(question.content_html),
+                      }}
+                    />
+                    {/* Plain-text view with □ position markers so the
+                        user always knows where formula images / torn
+                        corners are expected. */}
+                    <details className="mt-2">
+                      <summary className="text-xs text-notion-muted cursor-pointer hover:text-notion-text">
+                        显示文本位置标记
+                      </summary>
+                      <p className="mt-2 text-sm text-notion-subtle leading-relaxed whitespace-pre-wrap font-mono bg-notion-surface rounded-notion p-3">
+                        {cleanLatexDelimiters(question.content)}
+                      </p>
+                    </details>
+                  </>
                 ) : (
                   <p className="text-notion-text text-base leading-relaxed whitespace-pre-wrap">
                     {cleanLatexDelimiters(question.content)}

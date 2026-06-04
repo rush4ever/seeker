@@ -23,6 +23,9 @@ test-results/
 # Codegraph MCP index (generated)
 .codegraph/
 
+# Reasonix workspace
+.reasonix/
+
 # Word/Office lock files (transient)
 refer/~$*.docx
 *~*.docx
