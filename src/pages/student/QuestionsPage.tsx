@@ -158,6 +158,7 @@ export default function QuestionsPage() {
           answer_date: q.answerDate,
           content: q.content,
           content_html: q.contentHtml,
+          content_html_original: q.rawHtml,
           content_images: contentImages,
           student_answer: null,
           correct_answer: q.correctAnswer,
@@ -991,34 +992,31 @@ function QuestionCard({
                 )}
               </section>
 
-              {/* 8. Original images — show ALL images from the docx
-                  so the user can verify the parser output against
-                  the source. Previously only the single largest image
-                  was shown, which could be a formula image rather
-                  than the original question context. Now the user
-                  sees every image extracted from the docx. */}
-              {sortedImages.length > 0 && (
+              {/* 8. Original docx rendering — show the raw mammoth HTML
+                  from import time so the user can verify the parser
+                  output against the original document. This is the
+                  最接近原题"截图"的效果 in a browser environment. */}
+              {question.content_html_original && (
                 <section className="p-4 space-y-3">
                   <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
-                    原始题目图片
+                    原始题目（文档原样）
                   </h3>
-                  <div className="space-y-3">
-                    {sortedImages.map((img, i) => (
-                      <figure key={i} className="space-y-1">
-                        <img
-                          src={`data:${img.mimeType};base64,${img.data}`}
-                          alt={img.description || img.name || `原图 ${i + 1}`}
-                          className="max-w-full h-auto rounded-notion border border-notion-border"
-                        />
-                        {img.description && (
-                          <figcaption className="text-xs text-notion-subtle">
-                            {img.name ? `${img.name} — ` : ""}
-                            {img.description}
-                          </figcaption>
-                        )}
-                      </figure>
-                    ))}
-                  </div>
+                  <div
+                    className="raw-mammoth-content bg-white rounded-notion border border-notion-border p-4 overflow-x-auto"
+                    dangerouslySetInnerHTML={{ __html: question.content_html_original }}
+                  />
+                  <style>{`
+                    .raw-mammoth-content img {
+                      max-width: 100%;
+                      height: auto;
+                      display: inline-block;
+                      vertical-align: middle;
+                    }
+                    .raw-mammoth-content p {
+                      margin: 0.5em 0;
+                      line-height: 1.6;
+                    }
+                  `}</style>
                 </section>
               )}
             </div>

@@ -63,15 +63,16 @@ test.describe("详情 modal UX", () => {
       ]);
       await db.execute(
         `INSERT INTO questions (student_id, subject, source_type, question_type,
-           content, content_html, content_images, correct_answer, error_cause,
+           content, content_html, content_html_original, content_images, correct_answer, error_cause,
            difficulty, solution_approach, solution_steps, mastery_score,
            chapter, status)
-         VALUES (?, 'math', 'manual', 'objective', ?, ?, ?, 'A', 'concept',
+         VALUES (?, 'math', 'manual', 'objective', ?, ?, ?, ?, 'A', 'concept',
            'medium', '先通分再比较', ?, 30, '分式', 'active')`,
         [
           sid,
           "E2E化简分式-1除以4减a",
           "<p>E2E化简分式-1除以4减a</p>",
+          "<p>原始题目: E2E化简分式-1除以4减a</p>",
           contentImages,
           steps,
         ],
@@ -119,7 +120,7 @@ test.describe("详情 modal UX", () => {
       page.getByRole("heading", { name: "掌握度", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "原始题目图片", exact: true }),
+      page.getByRole("heading", { name: "原始题目（文档原样）", exact: true }),
     ).toBeVisible();
 
     // Solution steps render as <ol> with at least one <li>
@@ -136,16 +137,17 @@ test.describe("详情 modal UX", () => {
 
     // Exactly ONE original image (NOT per-formula blocks) — single-image
     // case. Multi-image case is covered by the next test.
-    const imgSection = page
-      .getByRole("heading", { name: "原始题目图片", exact: true })
+    // The raw mammoth HTML section contains the original question text
+    const origSection = page
+      .getByRole("heading", { name: "原始题目（文档原样）", exact: true })
       .locator("..");
-    const imgCount = await imgSection.locator("img").count();
-    expect(imgCount).toBe(1);
-
-    // "识别结果" caption must NOT appear (we removed that)
+    await expect(origSection.locator(".raw-mammoth-content")).toBeVisible();
+    const rawText = await origSection.locator(".raw-mammoth-content").innerText();
+    expect(rawText).toContain("原始题目:");
+    // Check that "识别结果" text does NOT appear in the original section
     await expect(
       page
-        .getByRole("heading", { name: "原始题目图片", exact: true })
+        .getByRole("heading", { name: "原始题目（文档原样）", exact: true })
         .locator("..")
         .locator("text=识别结果"),
     ).toHaveCount(0);
@@ -197,13 +199,15 @@ test.describe("详情 modal UX", () => {
           description: "homework photo",
         },
       ]);
+      const contentHtml = "<p>多图测试题</p>";
+      const rawHtml = `<p>多图测试题 <img src="data:image/png;base64,${tiny}" /> <img src="data:image/png;base64,${photo}" /></p>`;
       await db.execute(
         `INSERT INTO questions (student_id, subject, source_type, question_type,
-           content, content_html, content_images, correct_answer, error_cause,
+           content, content_html, content_html_original, content_images, correct_answer, error_cause,
            difficulty, mastery_score, status)
-         VALUES (?, 'math', 'manual', 'objective', ?, ?, ?, 'A', 'concept',
+         VALUES (?, 'math', 'manual', 'objective', ?, ?, ?, ?, 'A', 'concept',
            'medium', 0, 'active')`,
-        [sid, "多图测试题", "<p>多图测试题</p>", contentImages],
+        [sid, "多图测试题", contentHtml, rawHtml, contentImages],
       );
     });
 
@@ -211,25 +215,24 @@ test.describe("详情 modal UX", () => {
     await page.waitForTimeout(300);
     await page.locator("text=多图测试题").first().click();
 
-    // The modal should render ALL images (sorted largest first).
-    // The previous behavior showed only the single largest image;
-    // the user now sees every original image from the docx for
-    // verification purposes.
-    const imgSection = page
-      .getByRole("heading", { name: "原始题目图片", exact: true })
+    // The modal shows the original docx rendering with all images
+    // from the raw mammoth HTML preserved exactly as in the source.
+    const origSection = page
+      .getByRole("heading", { name: "原始题目（文档原样）", exact: true })
       .locator("..");
-    const imgCount = await imgSection.locator("img").count();
+    // Inside .raw-mammoth-content both images are present
+    const imgCount = await origSection.locator(".raw-mammoth-content img").count();
     expect(imgCount).toBe(2);
 
-    // The FIRST rendered image must be the largest (sorted descending).
-    // Identify by base64 length: photo payload (216 chars) > tiny (96 chars).
-    const firstSrc = (await imgSection.locator("img").first().getAttribute("src")) ?? "";
-    const firstPayload = firstSrc.split(",")[1] ?? "";
-    expect(firstPayload.length).toBeGreaterThan(96);
-    // The SECOND image should be the tiny one.
-    const secondSrc = (await imgSection.locator("img").nth(1).getAttribute("src")) ?? "";
-    const secondPayload = secondSrc.split(",")[1] ?? "";
-    expect(secondPayload.length).toBe(96);
+    // Both images' src payloads must be present (not truncated)
+    const allSrcs = await origSection
+      .locator(".raw-mammoth-content img")
+      .evaluateAll((imgs) =>
+        imgs.map((img) => ((img as HTMLImageElement).src.split(",")[1] ?? "")),
+      );
+    // The photo payload (216 chars) and tiny (96 chars) are both preserved
+    expect(allSrcs.some((s: string) => s.length > 96)).toBe(true);
+    expect(allSrcs.some((s: string) => s.length === 96)).toBe(true);
   });
 
   test("REGRESSION #同类 2: 列表卡片显示原图缩略图（最大那张）+ 📷 含原图 徽章", async ({

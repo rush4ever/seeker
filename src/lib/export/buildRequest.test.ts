@@ -20,6 +20,7 @@ const baseQuestion: Question = {
   answer_date: "2025-12-01",
   content: "求 $x^2$ 的解",
   content_html: "<p>求 $x^2$ 的解</p>",
+  content_html_original: null,
   content_images: JSON.stringify([
     {
       name: "q1_img1.png",

@@ -77,7 +77,7 @@ test.describe("Word 导入流程", () => {
     await page.locator("text=小敏同学").first().click();
 
     // Detail modal should show
-    await expect(page.locator('text=原始题目图片')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=原始题目（文档原样）')).toBeVisible({ timeout: 5000 });
 
     // Close modal by clicking the X button
     await page.locator('.fixed.inset-0 .bg-white button').first().click();

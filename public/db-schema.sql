@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS questions (
   answer_date TEXT,
   content TEXT NOT NULL,
   content_html TEXT,
+  content_html_original TEXT,
   content_images TEXT,
   student_answer TEXT,
   correct_answer TEXT,
@@ -92,6 +93,7 @@ CREATE TABLE IF NOT EXISTS review_schedule (
 );
 
 -- Migration: add content_html if not exists (safe to re-run)
+ALTER TABLE questions ADD COLUMN content_html_original TEXT;
 ALTER TABLE questions ADD COLUMN content_html TEXT;
 ALTER TABLE questions ADD COLUMN solution_approach TEXT;
 ALTER TABLE questions ADD COLUMN solution_steps TEXT;

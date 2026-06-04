@@ -19,6 +19,7 @@ function makeQuestion(overrides: Partial<Question> = {}): Question {
     answer_date: "2026-05-14",
     content: "计算: (a/b) * (c/d)",
     content_html: null,
+    content_html_original: null,
     content_images: null,
     student_answer: "错误答案",
     correct_answer: "ac/bd",
@@ -178,7 +179,8 @@ describe("formatForPrint", () => {
   });
 
   it("falls back to content when content_html is null", () => {
-    const q = makeQuestion({ content: "纯文本内容", content_html: null });
+    const q = makeQuestion({ content: "纯文本内容", content_html: null,
+    content_html_original: null });
     const sheet = buildPracticeSheet([q], "questions_only", new Map());
     const html = formatForPrint(sheet, "学生");
     expect(html).toContain("纯文本内容");

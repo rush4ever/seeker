@@ -68,6 +68,7 @@ export function buildManualQuestionInput(
     answer_date: null,
     content: form.content,
     content_html: null,
+    content_html_original: null,
     content_images: serialized,
     student_answer: null,
     correct_answer: form.correctAnswer || null,

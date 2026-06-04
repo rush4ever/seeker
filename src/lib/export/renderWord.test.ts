@@ -69,6 +69,7 @@ const sampleQ: Question = {
   answer_date: null,
   content: "已知 $x^2$ 的解",
   content_html: null,
+    content_html_original: null,
   content_images: null,
   student_answer: null,
   correct_answer: "C",

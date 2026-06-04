@@ -43,6 +43,7 @@ export interface Question {
   answer_date: string | null;
   content: string;
   content_html: string | null;
+  content_html_original: string | null;
   content_images: string | null;
   student_answer: string | null;
   correct_answer: string | null;

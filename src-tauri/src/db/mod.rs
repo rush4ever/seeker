@@ -28,5 +28,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("./migrations/v5_add_question_analysis.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "add_content_html_original",
+            sql: include_str!("./migrations/v6_add_content_html_original.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

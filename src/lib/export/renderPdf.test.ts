@@ -58,6 +58,7 @@ const sampleQ: Question = {
   answer_date: null,
   content: "已知 $x^2 + 1 = 0$ 的解",
   content_html: null,
+    content_html_original: null,
   content_images: null,
   student_answer: "无解",
   correct_answer: "C",

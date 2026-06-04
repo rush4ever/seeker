@@ -11,6 +11,9 @@ export interface ParsedQuestion {
   answerDate: string;
   content: string;
   contentHtml: string;
+  /** Raw mammoth HTML for this question (before any processing),
+   *  stored so the user can verify the original docx content. */
+  rawHtml: string;
   images: {
     name: string;
     data: Uint8Array;
@@ -403,6 +406,11 @@ export async function parseWordDocument(
       .replace(/\s+/g, " ")
       .trim();
 
+    // Save the raw mammoth HTML (after header removal) for the
+    // "原始题目图片" feature — the user sees what the original
+    // docx question looked like at import time.
+    const rawHtml = contentHtml;
+
     // Parse images in the content using vision model
     if (onProgress) {
       onProgress({
@@ -428,6 +436,7 @@ export async function parseWordDocument(
       answerDate: meta.answerDate,
       content: text,
       contentHtml: updatedHtml,
+      rawHtml,
       images,
       options:
         meta.type === "objective" ? parseOptions(updatedHtml) : undefined,
