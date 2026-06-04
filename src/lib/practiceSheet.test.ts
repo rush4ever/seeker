@@ -129,6 +129,97 @@ describe("formatForPrint", () => {
     expect(html).toContain("分式化简");
   });
 
+  it("full_analysis mode includes solution_approach and solution_steps", () => {
+    const q = makeQuestion({
+      solution_approach: "先用平方差公式",
+      solution_steps: '["1. x²-4=0", "2. (x-2)(x+2)=0", "3. x=±2"]',
+    });
+    const sheet = buildPracticeSheet(
+      [q],
+      "full_analysis",
+      new Map()
+    );
+    const html = formatForPrint(sheet, "学生");
+    expect(html).toContain("解题思路");
+    expect(html).toContain("平方差公式");
+    expect(html).toContain("解题步骤");
+    expect(html).toContain("x²-4=0");
+    expect(html).toContain("x=±2");
+  });
+
+  it("full_analysis mode shows student answer row when present", () => {
+    const q = makeQuestion({ student_answer: "x=2" });
+    const sheet = buildPracticeSheet([q], "full_analysis", new Map());
+    const html = formatForPrint(sheet, "学生");
+    expect(html).toContain("学生答案");
+    expect(html).toContain("x=2");
+  });
+
+  it("questions_only mode omits analysis rows even when data is present", () => {
+    const q = makeQuestion({
+      correct_answer: "应该看不到",
+      solution_approach: "不应该出现",
+    });
+    const sheet = buildPracticeSheet([q], "questions_only", new Map());
+    const html = formatForPrint(sheet, "学生");
+    expect(html).not.toContain("应该看不到");
+    expect(html).not.toContain("解题思路");
+  });
+
+  it("prefers content_html over content when both are present", () => {
+    const q = makeQuestion({
+      content: "PLAIN-FALLBACK",
+      content_html: "<p>RICH-HTML-WINS</p>",
+    });
+    const sheet = buildPracticeSheet([q], "questions_only", new Map());
+    const html = formatForPrint(sheet, "学生");
+    expect(html).toContain("RICH-HTML-WINS");
+    expect(html).not.toContain("PLAIN-FALLBACK");
+  });
+
+  it("falls back to content when content_html is null", () => {
+    const q = makeQuestion({ content: "纯文本内容", content_html: null });
+    const sheet = buildPracticeSheet([q], "questions_only", new Map());
+    const html = formatForPrint(sheet, "学生");
+    expect(html).toContain("纯文本内容");
+  });
+
+  it("renders LaTeX in content to KaTeX HTML", () => {
+    const q = makeQuestion({ content: "化简 $\\frac{1}{2}$" });
+    const sheet = buildPracticeSheet([q], "questions_only", new Map());
+    const html = formatForPrint(sheet, "学生");
+    // KaTeX HTML includes a span with class katex; we just check
+    // the LaTeX source isn't a literal dump
+    expect(html).not.toContain("$\\frac{1}{2}$");
+    expect(html).toContain("katex");
+  });
+
+  it("embeds parsed images as <img> tags", () => {
+    const q = makeQuestion({ id: 7 });
+    const imagesMap = new Map([
+      [
+        7,
+        [
+          {
+            name: "q7_img1.png",
+            dataUrl: "data:image/png;base64,AAAA",
+            mimeType: "image/png",
+            description: "a triangle",
+          },
+        ],
+      ],
+    ]);
+    const sheet = buildPracticeSheet(
+      [q],
+      "questions_only",
+      new Map(),
+      imagesMap
+    );
+    const html = formatForPrint(sheet, "学生");
+    expect(html).toContain("data:image/png;base64,AAAA");
+    expect(html).toContain("a triangle");
+  });
+
   it("renders question content for each item", () => {
     const sheet = buildPracticeSheet(
       [

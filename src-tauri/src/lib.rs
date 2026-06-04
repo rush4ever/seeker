@@ -1,6 +1,5 @@
 mod commands;
 mod db;
-mod export;
 mod models;
 
 use tauri::Manager;
@@ -18,8 +17,7 @@ pub fn run() {
             commands::student::list_students,
             commands::grading::save_answer_photo,
             commands::grading::save_uploaded_photo,
-            commands::export::export_pdf,
-            commands::export::export_word,
+            commands::save_file::save_file,
             commands::backup::create_local_snapshot,
             commands::backup::list_local_snapshots,
             commands::backup::restore_snapshot,

@@ -19,3 +19,10 @@ src-tauri/target/
 *.log
 .superpowers/
 test-results/
+
+# Codegraph MCP index (generated)
+.codegraph/
+
+# Word/Office lock files (transient)
+refer/~$*.docx
+*~*.docx

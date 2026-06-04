@@ -1,89 +1,55 @@
+/**
+ * Export button group. Single source for "再练卷 / 分析卷" mode
+ * toggle and PDF/Word export.
+ *
+ * Flow (browser + Tauri both render the same Blobs in JS; the only
+ * difference is who writes them to disk):
+ *
+ *   questions
+ *     → loadKnowledgePoints + parseContentImages (buildRequest.ts)
+ *     → buildPracticeSheet (practiceSheet.ts)
+ *     → renderPdfFromHtml | renderWordFromHtml  (Blob in JS)
+ *     → saveBrowserFile (browser)
+ *     → invoke("save_file", { bytes, ... })      (Tauri)
+ *     → toast with optional "打开" action
+ *
+ * The `mode` prop is required; the inline `onModeChange` (when
+ * provided) enables the user to switch between 再练卷 and 分析卷
+ * from the buttons themselves. Pages that already manage mode
+ * (PracticePage) omit `onModeChange` to lock the toggle.
+ */
 import { useState } from "react";
-import { FileText, FileSpreadsheet, Loader2 } from "lucide-react";
+import { FileText, FileSpreadsheet, Loader2, Pencil, BarChart2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
-import type { ExportRequest, PracticeMode, Question } from "../../types";
-import { getDb } from "../../lib/db";
+import type { PracticeMode, Question } from "../../types";
 import { isTauriRuntime } from "../../lib/env";
 import { saveBrowserFile } from "../../lib/download";
-import { generateBrowserPdf } from "../../lib/export/browserPdf";
-import { generateBrowserWord } from "../../lib/export/browserWord";
+import {
+  loadKnowledgePoints,
+  parseContentImages,
+  type ParsedImage,
+} from "../../lib/export/buildRequest";
+import { buildPracticeSheet } from "../../lib/practiceSheet";
+import { renderPdfFromHtml } from "../../lib/export/renderPdf";
+import { renderWordFromHtml } from "../../lib/export/renderWord";
 import { useToast } from "../common/useToast";
 
 interface Props {
   questions: Question[];
   studentName: string;
   mode: PracticeMode;
+  /** When provided, a 再练/分析 卷 toggle is rendered next to the buttons. */
+  onModeChange?: (m: PracticeMode) => void;
   title: string;
   disabled?: boolean;
-}
-
-const ERROR_CAUSE_MAP: Record<string, string> = {
-  concept: "概念不清",
-  calculation: "计算错误",
-  careless: "粗心",
-  misread: "审题失误",
-  unknown: "完全不会",
-};
-
-const DIFFICULTY_MAP: Record<string, string> = {
-  easy: "简单",
-  medium: "中等",
-  hard: "困难",
-};
-
-async function loadKnowledgePoints(questionIds: number[]): Promise<Map<number, string[]>> {
-  if (questionIds.length === 0) return new Map();
-  const db = await getDb();
-  const placeholders = questionIds.map(() => "?").join(",");
-  const rows = await db.select<{ question_id: number; name: string }[]>(
-    `SELECT qk.question_id, kn.name
-     FROM question_knowledge qk
-     JOIN knowledge_nodes kn ON qk.knowledge_id = kn.id
-     WHERE qk.question_id IN (${placeholders})`,
-    questionIds
-  );
-  const map = new Map<number, string[]>();
-  for (const row of rows) {
-    const existing = map.get(row.question_id) ?? [];
-    existing.push(row.name);
-    map.set(row.question_id, existing);
-  }
-  return map;
-}
-
-function buildExportRequest(
-  questions: Question[],
-  studentName: string,
-  mode: PracticeMode,
-  title: string,
-  knowledgeMap: Map<number, string[]>
-): ExportRequest {
-  return {
-    student_name: studentName,
-    mode,
-    title,
-    questions: questions.map((q) => ({
-      id: q.id,
-      content: q.content,
-      correct_answer: q.correct_answer,
-      student_answer: q.student_answer,
-      error_cause: q.error_cause,
-      error_cause_label: q.error_cause ? ERROR_CAUSE_MAP[q.error_cause] ?? q.error_cause : null,
-      difficulty: q.difficulty,
-      difficulty_label: q.difficulty ? DIFFICULTY_MAP[q.difficulty] ?? q.difficulty : null,
-      chapter: q.chapter,
-      knowledge_points: knowledgeMap.get(q.id) ?? [],
-      question_type: q.question_type,
-    })),
-  };
 }
 
 export default function ExportButtonGroup({
   questions,
   studentName,
   mode,
+  onModeChange,
   title,
   disabled,
 }: Props) {
@@ -98,37 +64,43 @@ export default function ExportButtonGroup({
       const ext = format === "pdf" ? "pdf" : "docx";
       const suggestedName = `${title}-${new Date().toISOString().slice(0, 10)}.${ext}`;
 
+      // 1. Build the practice sheet (single source of layout truth).
       const questionIds = questions.map((q) => q.id);
       const knowledgeMap = await loadKnowledgePoints(questionIds);
-      const request = buildExportRequest(questions, studentName, mode, title, knowledgeMap);
+      const imagesMap = new Map<number, ParsedImage[]>();
+      for (const q of questions) {
+        const parsed = parseContentImages(q.content_images);
+        if (parsed.length > 0) imagesMap.set(q.id, parsed);
+      }
+      const sheet = buildPracticeSheet(questions, mode, knowledgeMap, imagesMap);
 
+      // 2. Render the Blob in JS (same code path for browser + Tauri).
+      const blob =
+        format === "pdf"
+          ? await renderPdfFromHtml(sheet, studentName)
+          : await renderWordFromHtml(sheet, studentName);
+
+      // 3. Save it.
       if (isTauriRuntime()) {
-        // Tauri path: native save dialog → Rust command writes the file.
-        const path = await save({
-          defaultPath: suggestedName,
-          filters:
-            format === "pdf"
-              ? [{ name: "PDF", extensions: ["pdf"] }]
-              : [{ name: "Word", extensions: ["docx"] }],
-        });
-        if (!path) return; // user cancelled
-
-        const command = format === "pdf" ? "export_pdf" : "export_word";
-        await invoke(command, { request, path });
-
+        // Tauri: hand the bytes to a Rust command that opens the
+        // native save dialog and writes the file.
+        const buffer = await blob.arrayBuffer();
+        const bytes = Array.from(new Uint8Array(buffer));
+        const result = await invoke<{ saved: boolean; path: string | null }>(
+          "save_file",
+          { bytes, suggestedName, kind: ext },
+        );
+        if (!result.saved || !result.path) return;
         toast.success("已导出", {
-          description: path,
-          action: { label: "打开", onClick: () => openPath(path).catch(console.error) },
+          description: result.path,
+          action: {
+            label: "打开",
+            onClick: () => openPath(result.path!).catch(console.error),
+          },
         });
       } else {
-        // Browser path: generate the file in JS and trigger download.
-        const blob =
-          format === "pdf"
-            ? await generateBrowserPdf(request)
-            : await generateBrowserWord(request);
         const { saved, displayName } = await saveBrowserFile(blob, suggestedName);
-        if (!saved) return; // user cancelled picker
-
+        if (!saved) return;
         toast.success("已下载", { description: displayName });
       }
     } catch (err) {
@@ -142,7 +114,10 @@ export default function ExportButtonGroup({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
+      {onModeChange && (
+        <ModeToggle mode={mode} onChange={onModeChange} />
+      )}
       <button
         onClick={() => handleExport("pdf")}
         disabled={disabled || !!exporting}
@@ -166,6 +141,43 @@ export default function ExportButtonGroup({
           <FileSpreadsheet size={14} />
         )}
         导出 Word
+      </button>
+    </div>
+  );
+}
+
+function ModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: PracticeMode;
+  onChange: (m: PracticeMode) => void;
+}) {
+  return (
+    <div className="flex items-center bg-white rounded-notion border border-notion-border overflow-hidden text-sm">
+      <button
+        type="button"
+        onClick={() => onChange("questions_only")}
+        className={`px-3 py-1.5 flex items-center gap-1 transition-colors ${
+          mode === "questions_only"
+            ? "bg-notion-accent-bg text-notion-text font-medium"
+            : "text-notion-muted hover:bg-notion-surface"
+        }`}
+      >
+        <Pencil size={12} />
+        再练卷
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("full_analysis")}
+        className={`px-3 py-1.5 flex items-center gap-1 transition-colors border-l border-notion-border ${
+          mode === "full_analysis"
+            ? "bg-notion-accent-bg text-notion-text font-medium"
+            : "text-notion-muted hover:bg-notion-surface"
+        }`}
+      >
+        <BarChart2 size={12} />
+        分析卷
       </button>
     </div>
   );

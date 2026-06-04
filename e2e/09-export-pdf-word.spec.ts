@@ -6,9 +6,11 @@ import { test, expect } from "./fixtures";
  * These tests run under the Tauri-mock fixture (`__TAURI_INTERNALS__`
  * injected, shim marker absent), so the export code takes the
  * `isTauriRuntime() === true` branch:
- *   - `save()` from plugin-dialog returns "/tmp/mock-export.pdf"
- *   - `invoke("export_pdf" | "export_word")` returns a fake path
- *   - toast appears with "已导出" + the fake path
+ *   - Frontend renders PDF/Word Blob in JS (`renderPdfFromHtml` /
+ *     `renderWordFromHtml`).
+ *   - `invoke("save_file", { bytes, suggestedName, kind })` returns
+ *     a fake path.
+ *   - toast appears with "已导出" + the fake path.
  */
 
 test.describe("PDF / Word 导出 (Tauri-mock 路径)", () => {
@@ -61,9 +63,10 @@ test.describe("PDF / Word 导出 (Tauri-mock 路径)", () => {
     await expect(pdfBtn).toBeVisible();
     await pdfBtn.click();
 
-    // The mock console.log fires on export_pdf invocation
+    // The mock console.log fires on save_file invocation (frontend
+    // renders in JS; Rust's only job is the save dialog + file write)
     await expect.poll(
-      () => consoleLogs.some((l) => l.includes("[MOCK] export_pdf")),
+      () => consoleLogs.some((l) => l.includes("[MOCK] save_file")),
       { timeout: 5000 },
     ).toBe(true);
 
@@ -107,7 +110,7 @@ test.describe("PDF / Word 导出 (Tauri-mock 路径)", () => {
     await page.locator('button:has-text("导出 Word")').click();
 
     await expect.poll(
-      () => consoleLogs.some((l) => l.includes("[MOCK] export_word")),
+      () => consoleLogs.some((l) => l.includes("[MOCK] save_file")),
       { timeout: 5000 },
     ).toBe(true);
 

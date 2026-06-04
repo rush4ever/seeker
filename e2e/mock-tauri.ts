@@ -33,13 +33,48 @@ const defaultHandlers: MockInvokeHandlers = {
     return null;
   },
 
-  // Export commands
+  // Export: frontend now renders the bytes in JS. Rust's only job
+  // is the native save dialog + filesystem write. `save_file` is
+  // that new command. We return a mock path that preserves the
+  // suggested extension, AND stash the bytes in
+  // `window.__LAST_SAVED_FILE__` so e2e tests can inspect the
+  // generated PDF/Word bytes without going through the filesystem.
+  save_file: ({
+    bytes,
+    suggestedName,
+    kind,
+  }: {
+    bytes: number[];
+    suggestedName: string;
+    kind: string;
+  }) => {
+    console.log(
+      "[MOCK] save_file:",
+      suggestedName,
+      "kind=",
+      kind,
+      "bytes=",
+      bytes?.length ?? 0,
+    );
+    if (typeof window !== "undefined") {
+      (window as { __LAST_SAVED_FILE__?: unknown }).__LAST_SAVED_FILE__ = {
+        suggestedName,
+        kind,
+        bytes: new Uint8Array(bytes ?? []),
+      };
+    }
+    return { saved: true, path: `/tmp/mock-${suggestedName}` };
+  },
+
+  // Legacy export commands (no longer called — kept for old e2e
+  // specs that may not have migrated yet; safe to delete after one
+  // full green run).
   export_pdf: ({ request }: { request: { title: string } }) => {
-    console.log("[MOCK] export_pdf:", request.title);
+    console.log("[MOCK] export_pdf (legacy):", request.title);
     return "/tmp/mock-export.pdf";
   },
   export_word: ({ request }: { request: { title: string } }) => {
-    console.log("[MOCK] export_word:", request.title);
+    console.log("[MOCK] export_word (legacy):", request.title);
     return "/tmp/mock-export.docx";
   },
 

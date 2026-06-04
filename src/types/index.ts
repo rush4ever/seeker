@@ -90,6 +90,8 @@ export type ExportFormat = "pdf" | "word";
 export interface ExportQuestionInput {
   id: number;
   content: string;
+  content_html: string | null;
+  content_images: string | null;
   correct_answer: string | null;
   student_answer: string | null;
   error_cause: ErrorCause | null;
@@ -99,6 +101,8 @@ export interface ExportQuestionInput {
   chapter: string | null;
   knowledge_points: string[];
   question_type: QuestionType;
+  solution_approach: string | null;
+  solution_steps: string | null;
 }
 
 export interface ExportRequest {

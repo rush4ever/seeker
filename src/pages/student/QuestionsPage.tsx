@@ -10,7 +10,7 @@ import { parseWordDocument, type ParseProgress } from "../../lib/wordParser";
 import { getDb } from "../../lib/db";
 import { useSimilarQuestions } from "../../hooks/useSimilarQuestions";
 import { updateMastery, checkGraduationStatus, masteryBarClass } from "../../lib/mastery";
-import type { Question, Subject, SimilarQuestion } from "../../types";
+import type { Question, Subject, SimilarQuestion, PracticeMode } from "../../types";
 import EmptyState from "../../components/common/EmptyState";
 import { MathContent } from "../../components/common/MathContent";
 import { cleanLatexDelimiters, cleanLatexDelimitersInHtml } from "../../lib/text";
@@ -57,6 +57,7 @@ export default function QuestionsPage() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<ParseProgress | null>(null);
   const [filterSubject, setFilterSubject] = useState<Subject | "all">("all");
+  const [exportMode, setExportMode] = useState<PracticeMode>("full_analysis");
   const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
   const [adding, setAdding] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{
@@ -389,7 +390,8 @@ export default function QuestionsPage() {
             <ExportButtonGroup
               questions={filteredQuestions}
               studentName={currentStudent.name}
-              mode="full_analysis"
+              mode={exportMode}
+              onModeChange={setExportMode}
               title={`${filterSubject === "all" ? "全部" : subjectLabel(filterSubject)}错题集`}
             />
           )}
