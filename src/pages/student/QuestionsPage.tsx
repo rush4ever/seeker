@@ -565,17 +565,47 @@ function QuestionCard({
   const contentImages = useMemo(() => {
     if (!question.content_images) return [];
     try {
-      const parsed = JSON.parse(question.content_images) as {
+      const parsed = JSON.parse(question.content_images);
+      if (!Array.isArray(parsed)) return [];
+      // Old format: array of strings (file paths) — cannot render in browser mode.
+      if (parsed.length > 0 && typeof parsed[0] === "string") {
+        if (process.env.NODE_ENV !== "test") {
+          console.warn(
+            "[QuestionsPage] legacy file-path format in content_images — " +
+            "re-import to see images in browser mode.",
+          );
+        }
+        return [];
+      }
+      return parsed as {
         name: string;
         data: string;
         mimeType: string;
         description: string;
       }[];
-      return parsed;
     } catch {
       return [];
     }
   }, [question.content_images]);
+
+  // Largest image — used for both the list-card thumbnail and the
+  // detail modal's "原始题目图片" section. The homework photo is
+  // almost always the largest; the previous "[0]" pick surfaced a
+  // small inline image (e.g. torn-corner marker) instead.
+  const topThumbnail = useMemo(() => {
+    const usable = contentImages.filter((img) => img?.data);
+    if (usable.length === 0) return null;
+    const best = usable.reduce((a, b) =>
+      (a.data?.length ?? 0) >= (b.data?.length ?? 0) ? a : b,
+    );
+    return {
+      src: `data:${best.mimeType};base64,${best.data}`,
+      alt: best.description || best.name || "题目原图",
+      name: best.name,
+      description: best.description,
+    };
+  }, [contentImages]);
+  const hasOriginalPhoto = topThumbnail !== null;
 
   useEffect(() => {
     if (!showSimilar || similarLoaded) return;
@@ -651,7 +681,33 @@ function QuestionCard({
                 已毕业
               </span>
             )}
+            {hasOriginalPhoto && (
+              <span
+                className="text-xs px-2 py-1 rounded-full bg-notion-surface text-notion-muted"
+                title="本题含原图，可点开详情核对"
+              >
+                📷 含原图
+              </span>
+            )}
           </div>
+
+          {/* Original-photo thumbnail — pick the largest image so the
+              user sees the most informative preview on the list card. */}
+          {hasOriginalPhoto && (
+            <button
+              type="button"
+              onClick={() => setShowDetail(true)}
+              className="block mb-2 rounded-notion overflow-hidden border border-notion-border hover:border-notion-text transition-colors"
+              title="点击查看原图"
+              aria-label="查看原图"
+            >
+              <img
+                src={topThumbnail.src}
+                alt={topThumbnail.alt}
+                className="block max-w-[120px] max-h-[80px] object-contain bg-white"
+              />
+            </button>
+          )}
 
           {/* Content */}
           {question.content_html ? (
@@ -929,19 +985,32 @@ function QuestionCard({
                 )}
               </section>
 
-              {/* 8. Original image — show ONE whole picture, not per-formula.
-                  The OCR / recognition results are no longer exposed here:
-                  the user came to study, not to verify the recognizer. */}
-              {contentImages.length > 0 && contentImages[0]?.data && (
+              {/* 8. Original image — show the LARGEST image, which is
+                  almost always the homework photo (the user's full
+                  reference for verifying the parser output). Inline
+                  formula images are already rendered inline in the
+                  question body (content_html) and the torn-corner
+                  marker becomes a □ char in the text, so we do NOT
+                  list them here — the user wants the original
+                  question, not a gallery. */}
+              {topThumbnail && (
                 <section className="p-4 space-y-2">
                   <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
                     原始题目图片
                   </h3>
-                  <img
-                    src={`data:${contentImages[0].mimeType};base64,${contentImages[0].data}`}
-                    alt="题目原图"
-                    className="max-w-full h-auto rounded-notion border border-notion-border"
-                  />
+                  <figure className="space-y-1">
+                    <img
+                      src={topThumbnail.src}
+                      alt={topThumbnail.alt}
+                      className="max-w-full h-auto rounded-notion border border-notion-border"
+                    />
+                    {topThumbnail.description && (
+                      <figcaption className="text-xs text-notion-subtle">
+                        {topThumbnail.name ? `${topThumbnail.name} — ` : ""}
+                        {topThumbnail.description}
+                      </figcaption>
+                    )}
+                  </figure>
                 </section>
               )}
             </div>

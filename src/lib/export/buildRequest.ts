@@ -117,17 +117,43 @@ export function buildExportRequest(deps: BuildRequestDeps): ExportRequest {
  * that the renderers can drop straight into <img> / ImageRun.
  * Defensive: any parse error yields an empty array.
  */
+/**
+ * Parse the JSON `content_images` column once, producing data: URLs
+ * that the renderers can drop straight into <img> / ImageRun.
+ * Defensive: any parse error yields an empty array.
+ *
+ * Handles two formats:
+ *   新格式 (v2+) — `[{name, data, mimeType, description}]` where `data`
+ *     is the base64-encoded image bytes. This is the current format.
+ *   旧格式 (v0-v1) — `["/path/to/image.png"]` (file-path strings).
+ *     Those paths are only meaningful inside a Tauri app, not in
+ *     browser-mode (sql.js dev), and can never be rendered from
+ *     the DB alone. We detect the old format and emit a warning so
+ *     the user knows why no images appear.
+ */
 export function parseContentImages(raw: string | null): ParsedImage[] {
   if (!raw) return [];
   try {
-    const arr = JSON.parse(raw) as Array<{
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    // Old format: array of strings (file paths) — cannot render.
+    if (arr.length > 0 && typeof arr[0] === "string") {
+      if (process.env.NODE_ENV !== "test") {
+        console.warn(
+          "[parseContentImages] legacy file-path format detected in content_images; " +
+          "these images are only accessible in Tauri runtime. Re-import the questions " +
+          "to store inline image data.",
+          arr.slice(0, 3),
+        );
+      }
+      return [];
+    }
+    return (arr as Array<{
       name?: string;
       data?: string;
       mimeType?: string;
       description?: string;
-    }>;
-    if (!Array.isArray(arr)) return [];
-    return arr
+    }>)
       .filter((x) => x && x.data)
       .map((x) => ({
         name: x.name ?? "",

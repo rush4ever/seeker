@@ -131,6 +131,16 @@ describe("parseContentImages", () => {
       ),
     ).toHaveLength(1);
   });
+
+  it("handles legacy file-path format by returning [] (browser-mode cannot render paths)", () => {
+    // Old format: array of file-path strings
+    const result = parseContentImages(JSON.stringify(["/a/b.png", "/a/c.jpg"]));
+    expect(result).toEqual([]);
+  });
+
+  it("handles empty arrays", () => {
+    expect(parseContentImages("[]")).toEqual([]);
+  });
 });
 
 describe("toRenderable", () => {

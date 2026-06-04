@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   validateManualQuestionForm,
   buildManualQuestionInput,
+  type ManualImageInput,
   type ManualQuestionForm,
 } from "../../lib/manualQuestion";
 import { useQuestions } from "../../hooks/useQuestions";
@@ -24,7 +25,7 @@ export default function ManualAddQuestionForm({ studentId, onClose, onAdded }: P
     errorCause: "unknown",
     difficulty: "medium",
   });
-  const [imagePaths, setImagePaths] = useState<string[]>([]);
+  const [images, setImages] = useState<ManualImageInput[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,17 +38,30 @@ export default function ManualAddQuestionForm({ studentId, onClose, onAdded }: P
   async function handleUploadImages(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
-    const paths: string[] = [];
+    const next: ManualImageInput[] = [];
     for (const f of files) {
       const buf = await f.arrayBuffer();
+      // Save the bytes to disk for the file-system / backup pipeline,
+      // AND keep the base64 in state so the DB column can hold the
+      // full image (no path resolution needed at render time).
       const path = (await invoke("save_uploaded_photo", {
         studentId,
         filename: f.name,
         bytes: Array.from(new Uint8Array(buf)),
       })) as string;
-      paths.push(path);
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      next.push({
+        name: f.name,
+        data: btoa(binary),
+        mimeType: f.type || "image/png",
+        path,
+      });
     }
-    setImagePaths((p) => [...p, ...paths]);
+    setImages((p) => [...p, ...next]);
   }
 
   async function handleSubmit() {
@@ -59,7 +73,7 @@ export default function ManualAddQuestionForm({ studentId, onClose, onAdded }: P
     }
     setSubmitting(true);
     try {
-      const input = buildManualQuestionInput(form, studentId, imagePaths);
+      const input = buildManualQuestionInput(form, studentId, images);
       await addQuestions([input]);
       onAdded();
       onClose();
@@ -173,7 +187,7 @@ export default function ManualAddQuestionForm({ studentId, onClose, onAdded }: P
           className="notion-btn-ghost text-xs"
           type="button"
         >
-          <Upload size={14} /> 上传图片（{imagePaths.length}）
+          <Upload size={14} /> 上传图片（{images.length}）
         </button>
       </div>
 

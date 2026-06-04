@@ -55,6 +55,15 @@ describe("cleanLatexDelimiters", () => {
     expect(out).toContain("化简");
     expect(out).toContain("的值");
   });
+
+  it("preserves the □ torn-corner placeholder character (Bug A regression)", () => {
+    // The user reported that "已知 (-□-1) × 1/(5-a) = 1/(a-4)" lost
+    // the □ character after import, leaving "-1" with no marker for
+    // the torn corner. The cleaner must NOT eat non-$ characters.
+    const out = cleanLatexDelimiters("已知 (-□-1) × 1/(5-a) = 1/(a-4)");
+    expect(out).toContain("□");
+    expect(out).toContain("(-□-1)");
+  });
 });
 
 describe("cleanLatexDelimitersInHtml (DOM-only — skipped in Node)", () => {

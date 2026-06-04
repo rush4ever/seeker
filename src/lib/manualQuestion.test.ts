@@ -48,7 +48,7 @@ describe("buildManualQuestionInput", () => {
     });
   });
 
-  it("serializes image paths to JSON array", () => {
+  it("serializes image objects to the same shape as the Word-import path", () => {
     const input = buildManualQuestionInput(
       {
         content: "q",
@@ -60,9 +60,29 @@ describe("buildManualQuestionInput", () => {
         difficulty: "medium",
       },
       1,
-      ["/a/b.png", "/a/c.png"]
+      [
+        {
+          name: "b.png",
+          data: "BASE64_OF_B",
+          mimeType: "image/png",
+          path: "/a/b.png",
+        },
+        {
+          name: "c.png",
+          data: "BASE64_OF_C",
+          mimeType: "image/png",
+          path: "/a/c.png",
+        },
+      ],
     );
-    expect(input.content_images).toBe('["/a/b.png","/a/c.png"]');
+    // The same shape parseImagesInHtml produces — the manual path can
+    // no longer store raw file paths (legacy fallback is the parser's
+    // job, not the writer's).
+    const parsed = JSON.parse(input.content_images!);
+    expect(parsed).toEqual([
+      { name: "b.png", data: "BASE64_OF_B", mimeType: "image/png", description: "" },
+      { name: "c.png", data: "BASE64_OF_C", mimeType: "image/png", description: "" },
+    ]);
   });
 
   it("writes empty JSON array when no images", () => {

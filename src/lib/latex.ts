@@ -15,6 +15,7 @@
  * KaTeX is the only dependency.
  */
 import katex from "katex";
+import { VISION_DESCRIPTION_RE } from "./textMarkers";
 
 export type Segment =
   | { type: "text"; content: string }
@@ -25,12 +26,13 @@ export type Segment =
  * Parse plain text into a sequence of plain-text, inline-math, and
  * display-math segments. `$$...$$` is matched before `$...$` so a
  * `$$` always opens a display block. Also unwraps `[图: ...]` markers
- * (the description inside becomes plain text).
+ * (the description inside becomes plain text). See
+ * `./textMarkers.ts` for the marker strategy.
  */
 export function parseSegments(text: string): Segment[] {
   const segments: Segment[] = [];
 
-  const cleaned = text.replace(/\[图:\s*([^\]]+)\]/g, "$1");
+  const cleaned = text.replace(VISION_DESCRIPTION_RE, "$1");
 
   // Display math first, then inline math. Non-greedy match.
   const regex = /(\$\$[\s\S]*?\$\$)|(\$[\s\S]*?\$)/g;

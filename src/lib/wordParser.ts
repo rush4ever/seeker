@@ -2,6 +2,7 @@ import mammoth from "mammoth";
 import JSZip from "jszip";
 import katex from "katex";
 import { parseImageContent } from "./vision";
+import { INLINE_IMAGE_MARKER, INLINE_FORMULA_IMG_RE } from "./textMarkers";
 
 export interface ParsedQuestion {
   number: number;
@@ -207,14 +208,25 @@ async function parseImagesInHtml(
         description: "",
       });
     } else {
-      // Decorative image: remove
-      updatedHtml = updatedHtml.replace(m.fullTag, "");
+      // Decorative image: drop the img tag but leave a marker so
+      // the user can see in the text body that SOMETHING was there.
+      // Silently removing leaves the math expression broken (e.g.
+      // "(-1) × …" with no hint that a torn-corner image was
+      // supposed to be at the -1 position). See ./textMarkers.ts
+      // for the strategy rationale.
+      updatedHtml = updatedHtml.replace(m.fullTag, INLINE_IMAGE_MARKER);
     }
   }
 
+  // For inline-formula images, leave the same marker in the text so
+  // the user can see WHERE the image was in the math expression.
+  // A real torn corner in the source .docx (the user's reported case)
+  // is an inline image; without this marker, "(-1) × …" loses all
+  // context for the missing character. See ./textMarkers.ts for
+  // the strategy rationale.
   const text = cleanLatexDelimiters(
     updatedHtml
-      .replace(/<img[^>]*class="inline-formula"[^>]*>/g, " [图] ")
+      .replace(INLINE_FORMULA_IMG_RE, INLINE_IMAGE_MARKER)
       .replace(/<span class="image-desc"[^>]*>(.*?)<\/span>/g, " $1 ")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
