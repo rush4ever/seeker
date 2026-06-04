@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useApp } from "../../context/AppContext";
 import { useQuestions } from "../../hooks/useQuestions";
 import {
@@ -563,56 +563,6 @@ function QuestionCard({
   const [similarLoaded, setSimilarLoaded] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
 
-  const contentImages = useMemo(() => {
-    if (!question.content_images) return [];
-    try {
-      const parsed = JSON.parse(question.content_images);
-      if (!Array.isArray(parsed)) return [];
-      // Old format: array of strings (file paths) — cannot render in browser mode.
-      if (parsed.length > 0 && typeof parsed[0] === "string") {
-        if (process.env.NODE_ENV !== "test") {
-          console.warn(
-            "[QuestionsPage] legacy file-path format in content_images — " +
-            "re-import to see images in browser mode.",
-          );
-        }
-        return [];
-      }
-      return parsed as {
-        name: string;
-        data: string;
-        mimeType: string;
-        description: string;
-      }[];
-    } catch {
-      return [];
-    }
-  }, [question.content_images]);
-
-  // All content images sorted by size (descending), for the
-  // detail modal's "原始题目图片" gallery. The user wants to see
-  // ALL original images from the .docx so they can verify the
-  // parser output against the source. Small inline formula images
-  // (< 50 bytes data) are excluded as they're usually invisible
-  // 1x1 markers rather than meaningful content. The list-card
-  // thumbnail still uses the largest image.
-  const sortedImages = useMemo(() => {
-    const usable = contentImages.filter((img) => img?.data && img.data.length >= 50);
-    return [...usable].sort((a, b) => (b.data?.length ?? 0) - (a.data?.length ?? 0));
-  }, [contentImages]);
-
-  // List-card thumbnail — the single most representative image.
-  const topThumbnail = useMemo(() => {
-    if (sortedImages.length === 0) return null;
-    const best = sortedImages[0];
-    return {
-      src: `data:${best.mimeType};base64,${best.data}`,
-      alt: best.description || best.name || "题目原图",
-      name: best.name,
-      description: best.description,
-    };
-  }, [sortedImages]);
-  const hasOriginalPhoto = sortedImages.length > 0;
 
   useEffect(() => {
     if (!showSimilar || similarLoaded) return;
@@ -688,33 +638,7 @@ function QuestionCard({
                 已毕业
               </span>
             )}
-            {hasOriginalPhoto && (
-              <span
-                className="text-xs px-2 py-1 rounded-full bg-notion-surface text-notion-muted"
-                title="本题含原图，可点开详情核对"
-              >
-                📷 含原图
-              </span>
-            )}
           </div>
-
-          {/* Original-photo thumbnail — pick the largest image so the
-              user sees the most informative preview on the list card. */}
-          {hasOriginalPhoto && (
-            <button
-              type="button"
-              onClick={() => setShowDetail(true)}
-              className="block mb-2 rounded-notion overflow-hidden border border-notion-border hover:border-notion-text transition-colors"
-              title="点击查看原图"
-              aria-label="查看原图"
-            >
-              <img
-                src={topThumbnail!.src}
-                alt={topThumbnail!.alt}
-                className="block max-w-[120px] max-h-[80px] object-contain bg-white"
-              />
-            </button>
-          )}
 
           {/* Content */}
           {question.content_html ? (

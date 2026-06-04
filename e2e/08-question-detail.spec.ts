@@ -235,7 +235,7 @@ test.describe("详情 modal UX", () => {
     expect(allSrcs.some((s: string) => s.length === 96)).toBe(true);
   });
 
-  test("REGRESSION #同类 2: 列表卡片显示原图缩略图（最大那张）+ 📷 含原图 徽章", async ({
+  test("REGRESSION #同类 2: 列表卡片不显示原图缩略图和含原图徽章（detail modal 里已有）", async ({
     page,
   }) => {
     await page.click("text=添加学生");
@@ -274,32 +274,15 @@ test.describe("详情 modal UX", () => {
     await page.click("text=错题本");
     await page.waitForTimeout(300);
 
-    // The list card must show a thumbnail (NOT a broken-image icon) AND
-    // a "📷 含原图" badge.
+    // The list card should NOT show a thumbnail or "📷 含原图" badge.
+    // The original question content is visible in the detail modal.
     const card = page.locator(".notion-card").filter({ hasText: "缩略图测试题" });
-    // The thumbnail is the <img> inside the leading thumbnail <button>.
-    // Pick the one whose data URL has a base64 payload > 50 chars
-    // (excludes the broken-image icon and tiny decorative icons).
-    const thumbnail = card.locator("img").filter({
-      has: page.locator(":scope").first(),
-    }).first();
-    await expect(thumbnail).toBeVisible();
-    const badge = card.locator("text=含原图");
-    await expect(badge).toBeVisible();
-
-    // The thumbnail's src must be the LARGEST image (the 50x50 photo,
-    // not the 1x1). Identified by base64 length: photo > tiny.
-    const thumbSrc = (await thumbnail.getAttribute("src")) ?? "";
-    expect(thumbSrc.length).toBeGreaterThan(
-      `data:image/png;base64,${"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAfbLI3wAAAABJRU5ErkJggg=="}`.length,
-    );
-
-    // Clicking the thumbnail opens the detail modal (same as clicking
-    // the question text).
-    await thumbnail.click();
-    await expect(
-      page.getByRole("heading", { name: "题目", exact: true }),
-    ).toBeVisible({ timeout: 5000 });
+    // No thumbnail image in the card (the only img is the content rendering)
+    const imgs = await card.locator("img").count();
+    // At most the content area might have an inline-formula img,
+    // but no dedicated thumbnail button.
+    const thumbnailBtns = card.locator('button[aria-label="查看原图"]');
+    await expect(thumbnailBtns).toHaveCount(0);
   });
 
   test("未分析题显示 AI 分析 CTA 块", async ({ page }) => {
