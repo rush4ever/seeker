@@ -588,24 +588,30 @@ function QuestionCard({
     }
   }, [question.content_images]);
 
-  // Largest image — used for both the list-card thumbnail and the
-  // detail modal's "原始题目图片" section. The homework photo is
-  // almost always the largest; the previous "[0]" pick surfaced a
-  // small inline image (e.g. torn-corner marker) instead.
+  // All content images sorted by size (descending), for the
+  // detail modal's "原始题目图片" gallery. The user wants to see
+  // ALL original images from the .docx so they can verify the
+  // parser output against the source. Small inline formula images
+  // (< 50 bytes data) are excluded as they're usually invisible
+  // 1x1 markers rather than meaningful content. The list-card
+  // thumbnail still uses the largest image.
+  const sortedImages = useMemo(() => {
+    const usable = contentImages.filter((img) => img?.data && img.data.length >= 50);
+    return [...usable].sort((a, b) => (b.data?.length ?? 0) - (a.data?.length ?? 0));
+  }, [contentImages]);
+
+  // List-card thumbnail — the single most representative image.
   const topThumbnail = useMemo(() => {
-    const usable = contentImages.filter((img) => img?.data);
-    if (usable.length === 0) return null;
-    const best = usable.reduce((a, b) =>
-      (a.data?.length ?? 0) >= (b.data?.length ?? 0) ? a : b,
-    );
+    if (sortedImages.length === 0) return null;
+    const best = sortedImages[0];
     return {
       src: `data:${best.mimeType};base64,${best.data}`,
       alt: best.description || best.name || "题目原图",
       name: best.name,
       description: best.description,
     };
-  }, [contentImages]);
-  const hasOriginalPhoto = topThumbnail !== null;
+  }, [sortedImages]);
+  const hasOriginalPhoto = sortedImages.length > 0;
 
   useEffect(() => {
     if (!showSimilar || similarLoaded) return;
@@ -702,8 +708,8 @@ function QuestionCard({
               aria-label="查看原图"
             >
               <img
-                src={topThumbnail.src}
-                alt={topThumbnail.alt}
+                src={topThumbnail!.src}
+                alt={topThumbnail!.alt}
                 className="block max-w-[120px] max-h-[80px] object-contain bg-white"
               />
             </button>
@@ -985,32 +991,34 @@ function QuestionCard({
                 )}
               </section>
 
-              {/* 8. Original image — show the LARGEST image, which is
-                  almost always the homework photo (the user's full
-                  reference for verifying the parser output). Inline
-                  formula images are already rendered inline in the
-                  question body (content_html) and the torn-corner
-                  marker becomes a □ char in the text, so we do NOT
-                  list them here — the user wants the original
-                  question, not a gallery. */}
-              {topThumbnail && (
-                <section className="p-4 space-y-2">
+              {/* 8. Original images — show ALL images from the docx
+                  so the user can verify the parser output against
+                  the source. Previously only the single largest image
+                  was shown, which could be a formula image rather
+                  than the original question context. Now the user
+                  sees every image extracted from the docx. */}
+              {sortedImages.length > 0 && (
+                <section className="p-4 space-y-3">
                   <h3 className="text-xs font-medium text-notion-muted uppercase tracking-wide">
                     原始题目图片
                   </h3>
-                  <figure className="space-y-1">
-                    <img
-                      src={topThumbnail.src}
-                      alt={topThumbnail.alt}
-                      className="max-w-full h-auto rounded-notion border border-notion-border"
-                    />
-                    {topThumbnail.description && (
-                      <figcaption className="text-xs text-notion-subtle">
-                        {topThumbnail.name ? `${topThumbnail.name} — ` : ""}
-                        {topThumbnail.description}
-                      </figcaption>
-                    )}
-                  </figure>
+                  <div className="space-y-3">
+                    {sortedImages.map((img, i) => (
+                      <figure key={i} className="space-y-1">
+                        <img
+                          src={`data:${img.mimeType};base64,${img.data}`}
+                          alt={img.description || img.name || `原图 ${i + 1}`}
+                          className="max-w-full h-auto rounded-notion border border-notion-border"
+                        />
+                        {img.description && (
+                          <figcaption className="text-xs text-notion-subtle">
+                            {img.name ? `${img.name} — ` : ""}
+                            {img.description}
+                          </figcaption>
+                        )}
+                      </figure>
+                    ))}
+                  </div>
                 </section>
               )}
             </div>

@@ -111,12 +111,9 @@ async function parseImagesInHtml(
   // Vision model reliably parses images >= this threshold
   const VISION_THRESHOLD = 800;
 
-  // Categorize images
+  // Categorize images — only large images go through the vision model
   const visionMatches = matches.filter(
     (m) => !SKIP_ALTS.includes(m.alt) && m.base64Src.length >= VISION_THRESHOLD
-  );
-  const inlineMatches = matches.filter(
-    (m) => !SKIP_ALTS.includes(m.alt) && m.base64Src.length < VISION_THRESHOLD
   );
 
   // Parse large images with vision model
@@ -170,6 +167,8 @@ async function parseImagesInHtml(
 
   for (const m of matches) {
     const parsed = parsedImages.get(m.fullTag);
+    const isDecorative = SKIP_ALTS.includes(m.alt);
+
     if (parsed && parsed.description) {
       // Large image with vision description: pre-render LaTeX inline
       imgIndex++;
@@ -188,8 +187,20 @@ async function parseImagesInHtml(
         mimeType: m.mimeType,
         description: parsed.description,
       });
-    } else if (inlineMatches.some((im) => im.fullTag === m.fullTag)) {
-      // Small image: keep as inline img tag for direct rendering
+    } else if (isDecorative) {
+      // Decorative image: drop the img tag but leave a marker so
+      // the user can see in the text body that SOMETHING was there.
+      // Silently removing leaves the math expression broken (e.g.
+      // "(-1) × …" with no hint that a torn-corner image was
+      // supposed to be at the -1 position). See ./textMarkers.ts
+      // for the strategy rationale.
+      updatedHtml = updatedHtml.replace(m.fullTag, INLINE_IMAGE_MARKER);
+    } else {
+      // Inline formula image (small) or vision-failed-but-not-decorative:
+      // keep the original img tag for direct rendering in the HTML view.
+      // Previously only images < VISION_THRESHOLD got this treatment;
+      // vision-failed images fell through to the decorative path and
+      // became □, which made formulas disappear when Ollama was down.
       imgIndex++;
       const ext = m.mimeType.split("/")[1] || "png";
       const name = `q${questionNum}_img${imgIndex}.${ext}`;
@@ -207,14 +218,6 @@ async function parseImagesInHtml(
         mimeType: m.mimeType,
         description: "",
       });
-    } else {
-      // Decorative image: drop the img tag but leave a marker so
-      // the user can see in the text body that SOMETHING was there.
-      // Silently removing leaves the math expression broken (e.g.
-      // "(-1) × …" with no hint that a torn-corner image was
-      // supposed to be at the -1 position). See ./textMarkers.ts
-      // for the strategy rationale.
-      updatedHtml = updatedHtml.replace(m.fullTag, INLINE_IMAGE_MARKER);
     }
   }
 
@@ -384,6 +387,14 @@ export async function parseWordDocument(
     const tableEnd = contentHtml.indexOf("</table>");
     if (tableEnd > 0) {
       contentHtml = contentHtml.substring(tableEnd + 8);
+    }
+
+    // If the remaining content still contains another <table> (next
+    // question's header leaked into this segment), truncate at that
+    // point so the next question's images don't pollute this one.
+    const nextTable = contentHtml.indexOf("<table");
+    if (nextTable > 0) {
+      contentHtml = contentHtml.substring(0, nextTable);
     }
 
     // Clean up

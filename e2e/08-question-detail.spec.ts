@@ -159,11 +159,8 @@ test.describe("详情 modal UX", () => {
     // rendering content_images[0], which was a small inline image
     // (a 1x1 torn-corner marker), not the actual homework photo.
     //
-    // Fix: pick the LARGEST image (by base64 length). The homework
-    // photo is almost always the largest. Inline formula images
-    // stay inline in the question body; the torn-corner marker
-    // becomes a □ char in the text — neither belongs in the
-    // "原始题目图片" gallery.
+    // Fix: show ALL original images sorted by size (largest first).
+    // The user can now see every image from the docx for verification.
     await page.click("text=添加学生");
     await page.fill('input[type="text"]', "多图测试生");
     await page.selectOption("select >> nth=0", "8");
@@ -214,20 +211,25 @@ test.describe("详情 modal UX", () => {
     await page.waitForTimeout(300);
     await page.locator("text=多图测试题").first().click();
 
-    // The modal should render EXACTLY ONE image: the largest one
-    // (the homework photo). The torn-corner is a tiny inline marker,
-    // not a candidate for this section.
+    // The modal should render ALL images (sorted largest first).
+    // The previous behavior showed only the single largest image;
+    // the user now sees every original image from the docx for
+    // verification purposes.
     const imgSection = page
       .getByRole("heading", { name: "原始题目图片", exact: true })
       .locator("..");
     const imgCount = await imgSection.locator("img").count();
-    expect(imgCount).toBe(1);
+    expect(imgCount).toBe(2);
 
-    // The single rendered image must be the largest. Identify by
-    // base64 length: photo payload (216 chars) > tiny (96 chars).
-    const onlyImgSrc = (await imgSection.locator("img").first().getAttribute("src")) ?? "";
-    const payload = onlyImgSrc.split(",")[1] ?? "";
-    expect(payload.length).toBeGreaterThan(96);
+    // The FIRST rendered image must be the largest (sorted descending).
+    // Identify by base64 length: photo payload (216 chars) > tiny (96 chars).
+    const firstSrc = (await imgSection.locator("img").first().getAttribute("src")) ?? "";
+    const firstPayload = firstSrc.split(",")[1] ?? "";
+    expect(firstPayload.length).toBeGreaterThan(96);
+    // The SECOND image should be the tiny one.
+    const secondSrc = (await imgSection.locator("img").nth(1).getAttribute("src")) ?? "";
+    const secondPayload = secondSrc.split(",")[1] ?? "";
+    expect(secondPayload.length).toBe(96);
   });
 
   test("REGRESSION #同类 2: 列表卡片显示原图缩略图（最大那张）+ 📷 含原图 徽章", async ({
