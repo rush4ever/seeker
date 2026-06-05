@@ -204,6 +204,40 @@ export default function QuestionsPage() {
     [generateSimilar, refresh]
   );
 
+  const handleSaveEdit = useCallback(
+    async (questionId: number, updates: {
+      errorCause?: string | null;
+      difficulty?: string | null;
+      solutionApproach?: string | null;
+      solutionSteps?: string | null;
+    }) => {
+      try {
+        const db = await getDb();
+        await db.execute(
+          `UPDATE questions SET
+             error_cause = COALESCE($1, error_cause),
+             difficulty = COALESCE($2, difficulty),
+             solution_approach = $3,
+             solution_steps = $4,
+             updated_at = datetime('now')
+           WHERE id = $5`,
+          [
+            updates.errorCause ?? null,
+            updates.difficulty ?? null,
+            updates.solutionApproach ?? null,
+            updates.solutionSteps ?? null,
+            questionId,
+          ]
+        );
+        await refresh();
+      } catch (err) {
+        console.error("Failed to save analysis edit:", err);
+        toast.error("保存失败", { description: err instanceof Error ? err.message : String(err) });
+      }
+    },
+    [refresh]
+  );
+
   const handleMarkResult = useCallback(
     async (question: Question, isCorrect: boolean) => {
       const newMastery = updateMastery(question.mastery_score, isCorrect);
@@ -486,6 +520,7 @@ export default function QuestionsPage() {
               onAnalyze={handleAnalyze}
               onGenerateSimilar={handleGenerateSimilar}
               onMarkResult={handleMarkResult}
+              onSaveEdit={handleSaveEdit}
               isAnalyzing={analyzingIds.has(q.id)}
               isGeneratingSimilar={generatingForId === q.id}
               ollamaAvailable={ollamaAvailable === true}
@@ -558,6 +593,7 @@ function QuestionCard({
   onAnalyze,
   onGenerateSimilar,
   onMarkResult,
+  onSaveEdit,
   isAnalyzing,
   isGeneratingSimilar,
   ollamaAvailable,
@@ -567,6 +603,12 @@ function QuestionCard({
   onAnalyze: (q: Question) => void;
   onGenerateSimilar: (q: Question) => void;
   onMarkResult: (q: Question, isCorrect: boolean) => void;
+  onSaveEdit: (id: number, updates: {
+    errorCause?: string | null;
+    difficulty?: string | null;
+    solutionApproach?: string | null;
+    solutionSteps?: string | null;
+  }) => Promise<void>;
   isAnalyzing: boolean;
   isGeneratingSimilar: boolean;
   ollamaAvailable: boolean;
@@ -576,6 +618,12 @@ function QuestionCard({
   const [similarQuestions, setSimilarQuestions] = useState<SimilarQuestion[]>([]);
   const [similarLoaded, setSimilarLoaded] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [showEditAnalysis, setShowEditAnalysis] = useState(false);
+  const [editErrorCause, setEditErrorCause] = useState<string>(question.error_cause || "unknown");
+  const [editDifficulty, setEditDifficulty] = useState<string>(question.difficulty || "medium");
+  const [editApproach, setEditApproach] = useState(question.solution_approach || "");
+  const [editSteps, setEditSteps] = useState(question.solution_steps || "[]");
+  const [savingEdit, setSavingEdit] = useState(false);
 
 
   useEffect(() => {
@@ -864,6 +912,93 @@ function QuestionCard({
                     </h3>
                     <SolutionStepsList steps={question.solution_steps} />
                   </section>
+                  {/* Edit analysis button */}
+                  <div className="px-4 pb-2">
+                    <button
+                      onClick={() => {
+                        setShowEditAnalysis(!showEditAnalysis);
+                        setEditErrorCause(question.error_cause || "unknown");
+                        setEditDifficulty(question.difficulty || "medium");
+                        setEditApproach(question.solution_approach || "");
+                        try {
+                          const steps = JSON.parse(question.solution_steps || "[]");
+                          setEditSteps(Array.isArray(steps) ? steps.join("\n") : "");
+                        } catch {
+                          setEditSteps("");
+                        }
+                      }}
+                      className="text-xs text-notion-muted hover:text-notion-text underline"
+                    >
+                      {showEditAnalysis ? "取消编辑" : "编辑分析结果"}
+                    </button>
+                  </div>
+                  {/* Edit analysis form */}
+                  {showEditAnalysis && (
+                    <div className="px-4 pb-4 space-y-3 border-t border-notion-border pt-3">
+                      <h4 className="text-xs font-medium text-notion-muted uppercase tracking-wide">修正分析结果</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-notion-muted mb-1">错因</label>
+                          <select
+                            value={editErrorCause}
+                            onChange={(e) => setEditErrorCause(e.target.value)}
+                            className="w-full text-sm border border-notion-border rounded-notion px-2 py-1"
+                          >
+                            <option value="concept">概念不清</option>
+                            <option value="calculation">计算错误</option>
+                            <option value="careless">粗心</option>
+                            <option value="misread">审题失误</option>
+                            <option value="unknown">完全不会</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-notion-muted mb-1">难度</label>
+                          <select
+                            value={editDifficulty}
+                            onChange={(e) => setEditDifficulty(e.target.value)}
+                            className="w-full text-sm border border-notion-border rounded-notion px-2 py-1"
+                          >
+                            <option value="easy">简单</option>
+                            <option value="medium">中等</option>
+                            <option value="hard">困难</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-notion-muted mb-1">解题思路</label>
+                        <textarea
+                          value={editApproach}
+                          onChange={(e) => setEditApproach(e.target.value)}
+                          className="w-full text-sm border border-notion-border rounded-notion px-2 py-1 min-h-[60px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-notion-muted mb-1">解题步骤（每行一步）</label>
+                        <textarea
+                          value={editSteps}
+                          onChange={(e) => setEditSteps(e.target.value)}
+                          className="w-full text-sm border border-notion-border rounded-notion px-2 py-1 min-h-[80px]"
+                        />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          setSavingEdit(true);
+                          await onSaveEdit(question.id, {
+                            errorCause: editErrorCause,
+                            difficulty: editDifficulty,
+                            solutionApproach: editApproach,
+                            solutionSteps: JSON.stringify(editSteps.split("\n").map(s => s.trim()).filter(Boolean)),
+                          });
+                          setSavingEdit(false);
+                          setShowEditAnalysis(false);
+                        }}
+                        disabled={savingEdit}
+                        className="notion-btn-primary text-sm disabled:opacity-50"
+                      >
+                        {savingEdit ? "保存中..." : "保存修正"}
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <section className="p-4 space-y-2">
