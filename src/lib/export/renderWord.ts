@@ -30,7 +30,7 @@ import {
 } from "docx";
 
 import { katexToPng, parseSegments } from "../latex";
-import { toRenderable, ERROR_CAUSE_MAP, DIFFICULTY_MAP } from "./buildRequest";
+import { toRenderable, contentHtmlToExportText, ERROR_CAUSE_MAP, DIFFICULTY_MAP } from "./buildRequest";
 import type { PracticeSheet, PracticeSheetItem } from "../practiceSheet";
 
 const NOTES_AREA_HEIGHT_TWIPS = 850; // ≈ 60pt at 20 twips/pt
@@ -110,7 +110,7 @@ async function buildItemBlocks(
   });
 
   const bodySource = q.content_html && q.content_html.trim().length > 0
-    ? stripHtmlTags(q.content_html)
+    ? contentHtmlToExportText(q.content_html)
     : q.content;
   const bodyRuns = await buildBodyRuns(bodySource);
 
@@ -344,16 +344,4 @@ function splitSteps(raw: string): string[] {
     /* fall through */
   }
   return raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-}
-
-function stripHtmlTags(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"');
 }

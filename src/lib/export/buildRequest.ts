@@ -170,3 +170,38 @@ export function parseContentImages(raw: string | null): ParsedImage[] {
 export function toRenderable(q: ExportQuestionInput): RenderableQuestion {
   return { ...q, parsedImages: parseContentImages(q.content_images) };
 }
+
+/**
+ * Convert content_html (which may contain <img> tags for formulas) into
+ * export-friendly text for PDF/Word rendering.
+ *
+ * Inline-formula <img> tags with a title attribute carry the vision model's
+ * LaTeX recognition result. We extract that as $...$ text so KaTeX can
+ * render it in the export pipeline. Images without a title become □.
+ *
+ * This is the counterpart of wordParser.ts's text-building logic,
+ * specialized for the export path (preserves LaTeX text, unlike the
+ * import-time text which uses □ markers).
+ */
+export function contentHtmlToExportText(contentHtml: string | null): string {
+  if (!contentHtml) return "";
+  // 1. inline-formula with title → $title$ (KaTeX-renderable LaTeX)
+  // 2. other img tags → □ (fallback position marker)
+  // 3. strip remaining HTML tags
+  return contentHtml
+    .replace(
+      /<img[^>]*class="inline-formula"[^>]*title="([^"]*)"[^>]*\/?>/gi,
+      (_match, title: string) => ` $${title.trim()}$ `,
+    )
+    .replace(/<img[^>]*\/?>/gi, " □ ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
