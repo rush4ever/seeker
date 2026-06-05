@@ -195,10 +195,9 @@ async function parseImagesInHtml(
       const ext = m.mimeType.split("/")[1] || "png";
       const name = `q${questionNum}_img${imgIndex}.${ext}`;
       const visionDesc = parsed?.description || "";
-      const altText = visionDesc || INLINE_IMAGE_MARKER;
       updatedHtml = updatedHtml.replace(
         m.fullTag,
-        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" alt="${altText}" title="${visionDesc}" style="max-height:4em;max-width:100%;width:auto;height:auto;display:inline-block;vertical-align:middle;border-radius:2px;" />`
+        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" alt="${INLINE_IMAGE_MARKER}" title="${visionDesc}" style="max-height:4em;max-width:100%;width:auto;height:auto;display:inline-block;vertical-align:middle;border-radius:2px;" />`
       );
       const base64Content = m.base64Src.split(",")[1];
       const data = Uint8Array.from(atob(base64Content), (c) =>

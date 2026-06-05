@@ -185,13 +185,17 @@ export function toRenderable(q: ExportQuestionInput): RenderableQuestion {
  */
 export function contentHtmlToExportText(contentHtml: string | null): string {
   if (!contentHtml) return "";
-  // 1. inline-formula with title → $title$ (KaTeX-renderable LaTeX)
-  // 2. other img tags → □ (fallback position marker)
-  // 3. strip remaining HTML tags
+  // 1. inline-formula with title → □（公式：$title$）
+  // 2. inline-formula without title → □
+  // 3. other img tags → □
+  // 4. strip remaining HTML tags
   return contentHtml
     .replace(
       /<img[^>]*class="inline-formula"[^>]*title="([^"]*)"[^>]*\/?>/gi,
-      (_match, title: string) => ` $${title.trim()}$ `,
+      (_match, title: string) => {
+        const trimmed = title.trim();
+        return trimmed ? " □（" + "$" + trimmed + "$" + "）" : " □ ";
+      },
     )
     .replace(/<img[^>]*\/?>/gi, " □ ")
     .replace(/<br\s*\/?>/gi, "\n")
