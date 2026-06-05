@@ -92,7 +92,7 @@ function buildAnalysisPrompt(
 2. 判断错因类型：concept(概念不清) / calculation(计算错误) / careless(粗心) / misread(审题失误) / unknown(完全不会)
 3. 评估难度：easy / medium / hard
 4. 解题思路：用 2-4 句中文说明这类题的一般解法/切入点
-5. 解题步骤：拆成 3-6 步，每步是简短的中文描述（不要 LaTeX，用文字表达，例如"通分"、"分子分母同时乘以 2"）
+5. 解题步骤：拆成 3-6 步，每步用文字或 LaTeX（$...$）表达，如果需要表示数学公式请用 LaTeX
 
 预置知识树：
 ${nodeList}
