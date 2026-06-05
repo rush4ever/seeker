@@ -92,7 +92,7 @@ function buildAnalysisPrompt(
 2. 判断错因类型：concept(概念不清) / calculation(计算错误) / careless(粗心) / misread(审题失误) / unknown(完全不会)
 3. 评估难度：easy / medium / hard
 4. 解题思路：用 2-4 句中文说明这类题的一般解法/切入点
-5. 解题步骤：拆成 3-6 步，每步用文字或 LaTeX（$...$）表达，如果需要表示数学公式请用 LaTeX
+5. 解题步骤：拆成 3-6 步，每步用中文文字描述。如果涉及公式，请用 $...$ 包裹 LaTeX（例如：$\\frac{1}{4-a}$，不要写没有 $ 符号的 \frac）
 
 预置知识树：
 ${nodeList}

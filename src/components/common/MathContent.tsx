@@ -68,15 +68,32 @@ function parseSegments(text: string): { type: "text" | "math" | "display"; conte
   return segments;
 }
 
+/**
+ * Detect if a text segment looks like raw LaTeX that wasn't wrapped in $...$.
+ * LLM output sometimes includes \frac, \sqrt, \times etc. without $ delimiters.
+ */
+const RAW_LATEX_RE = /\\[a-zA-Z]+[{[]/;
+
+function looksLikeLatex(s: string): boolean {
+  return RAW_LATEX_RE.test(s);
+}
+
 export function MathContent({ text, className = "" }: MathContentProps) {
   const html = useMemo(() => {
     const segments = parseSegments(text);
     return segments
       .map((seg) => {
         if (seg.type === "text") {
-          return seg.content
+          const textContent = seg.content
             .replace(/\[图片\]/g, '<span class="text-gray-400 italic">[图片]</span>')
             .replace(/\n/g, "<br/>");
+          // If the text segment contains raw LaTeX, render it as inline math.
+          // This catches cases where the LLM output \frac{...}{...} without
+          // wrapping in $ delimiters.
+          if (looksLikeLatex(textContent)) {
+            return renderLatex(textContent, false);
+          }
+          return textContent;
         }
         if (seg.type === "display") {
           return `<div class="my-2">${renderLatex(seg.content, true)}</div>`;
