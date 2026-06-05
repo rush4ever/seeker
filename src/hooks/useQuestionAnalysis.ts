@@ -47,7 +47,7 @@ function analysisText(question: Question): string {
 
   // Replace each □ in base text with □（label）
   let labelIdx = 0;
-  const result = base.replace(new RegExp(INLINE_IMAGE_MARKER, "g"), () => {
+  let result = base.replace(new RegExp(INLINE_IMAGE_MARKER, "g"), () => {
     const label = labelIdx < labels.length ? labels[labelIdx] : "";
     labelIdx++;
     if (label) {
@@ -55,6 +55,20 @@ function analysisText(question: Question): string {
     }
     return INLINE_IMAGE_MARKER;
   });
+
+  // Second pass: merge adjacent bare □ + labeled □ into one.
+  // In the Word doc, the □ character and its surrounding math expression
+  // are often split into two separate images (e.g., a 302B □ PNG and a
+  // 53KB formula PNG). The bare □ is the torn-corner marker, and the
+  // labeled □ is the formula that contains it. We merge them so the
+  // LLM sees □ INSIDE the formula expression.
+  //
+  // Example: □ □（$(-1)\times\frac{1}{5-a}=\frac{1}{a-4}$）
+  // becomes: □（$(□-1)\times\frac{1}{5-a}=\frac{1}{a-4}$）
+  result = result.replace(
+    /□\s*□（\$([^$]+)\$）/g,
+    (_match: string, formula: string) => `□（$(□${formula}$）`,
+  );
 
   return result;
 }
