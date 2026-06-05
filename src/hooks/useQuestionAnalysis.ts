@@ -2,7 +2,21 @@ import { useState, useCallback } from "react";
 import type { Question, ErrorCause, Difficulty } from "../types";
 import { getDb } from "../lib/db";
 import { checkOllamaStatus, analyzeQuestion } from "../lib/ollama";
+import { contentHtmlToExportText } from "../lib/export/buildRequest";
 import { getAllKnowledgeNodes } from "../lib/knowledgeTree";
+
+/**
+ * Build the richest available text for AI analysis.
+ * Prefers vision-identified content (LaTeX from content_html) over
+ * plain text (which may contain □ position markers).
+ */
+function analysisText(question: Question): string {
+  if (question.content_html) {
+    const rich = contentHtmlToExportText(question.content_html);
+    if (rich) return rich;
+  }
+  return question.content;
+}
 
 interface AnalysisState {
   analyzing: boolean;
@@ -49,7 +63,7 @@ export function useQuestionAnalysis() {
 
         // Call Ollama
         const result = await analyzeQuestion(
-          question.content,
+          analysisText(question),
           knowledgeNodes,
           status.model
         );
@@ -119,98 +133,10 @@ export function useQuestionAnalysis() {
     []
   );
 
-  const analyzeBatch = useCallback(
-    async (questions: Question[]): Promise<{ success: number; failed: number }> => {
-      setState((prev) => ({ ...prev, analyzing: true, error: null }));
-
-      let success = 0;
-      let failed = 0;
-
-      const status = await checkOllamaStatus();
-      if (!status.available) {
-        setState((prev) => ({
-          ...prev,
-          analyzing: false,
-          error: "Ollama 未运行或未安装模型",
-        }));
-        return { success: 0, failed: questions.length };
-      }
-
-      const allNodes = getAllKnowledgeNodes();
-      const knowledgeNodes = allNodes
-        .filter((n) => n.parent_id !== null)
-        .map((n) => ({ id: n.id, name: n.name }));
-
-      for (const question of questions) {
-        try {
-          const result = await analyzeQuestion(
-            question.content,
-            knowledgeNodes,
-            status.model
-          );
-
-          const matchedKnowledgeIds: number[] = [];
-          for (const kpName of result.knowledgePoints) {
-            const match = allNodes.find(
-              (n) =>
-                n.name === kpName ||
-                kpName.includes(n.name) ||
-                n.name.includes(kpName)
-            );
-            if (match && !matchedKnowledgeIds.includes(match.id)) {
-              matchedKnowledgeIds.push(match.id);
-            }
-          }
-
-          if (matchedKnowledgeIds.length === 0 && question.chapter) {
-            const chapterMatch = allNodes.find((n) =>
-              question.chapter!.includes(n.name)
-            );
-            if (chapterMatch) {
-              matchedKnowledgeIds.push(chapterMatch.id);
-            }
-          }
-
-          const db = await getDb();
-          await db.execute(
-            `UPDATE questions
-             SET error_cause = $1, difficulty = $2, solution_approach = $3,
-                 solution_steps = $4, updated_at = datetime('now')
-             WHERE id = $5`,
-            [
-              result.errorCause,
-              result.difficulty,
-              result.solutionApproach,
-              JSON.stringify(result.solutionSteps),
-              question.id,
-            ]
-          );
-
-          for (const kid of matchedKnowledgeIds) {
-            await db.execute(
-              `INSERT OR IGNORE INTO question_knowledge (question_id, knowledge_id, confidence)
-               VALUES ($1, $2, 0.8)`,
-              [question.id, kid]
-            );
-          }
-
-          success++;
-        } catch {
-          failed++;
-        }
-      }
-
-      setState((prev) => ({ ...prev, analyzing: false }));
-      return { success, failed };
-    },
-    []
-  );
-
   return {
     ...state,
     checkOllama,
     analyzeSingle,
-    analyzeBatch,
   };
 }
 

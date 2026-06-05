@@ -14,6 +14,7 @@ import type { Question, Subject, SimilarQuestion, PracticeMode } from "../../typ
 import EmptyState from "../../components/common/EmptyState";
 import { MathContent } from "../../components/common/MathContent";
 import { cleanLatexDelimiters, cleanLatexDelimitersInHtml } from "../../lib/text";
+import { contentHtmlToExportText } from "../../lib/export/buildRequest";
 import {
   FileUp,
   Filter,
@@ -263,7 +264,9 @@ export default function QuestionsPage() {
 
           try {
             const { analyzeQuestion } = await import("../../lib/ollama");
-            const result = await analyzeQuestion(q.content, allNodes, status.model);
+            const result = await analyzeQuestion(
+              contentHtmlToExportText(q.content_html) || q.content,
+              allNodes, status.model);
 
             const matchedIds: number[] = [];
             for (const kpName of result.knowledgePoints) {
