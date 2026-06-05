@@ -1,6 +1,5 @@
 import mammoth from "mammoth";
 import JSZip from "jszip";
-import katex from "katex";
 import { parseImageContent } from "./vision";
 import { INLINE_IMAGE_MARKER, INLINE_FORMULA_IMG_RE } from "./textMarkers";
 
@@ -172,25 +171,7 @@ async function parseImagesInHtml(
     const parsed = parsedImages.get(m.fullTag);
     const isDecorative = SKIP_ALTS.includes(m.alt);
 
-    if (parsed && parsed.description) {
-      // Large image with vision description: pre-render LaTeX inline
-      imgIndex++;
-      const ext = m.mimeType.split("/")[1] || "png";
-      const name = `q${questionNum}_img${imgIndex}.${ext}`;
-
-      // Render description (may contain LaTeX) to HTML
-      const renderedDesc = renderInlineMath(parsed.description);
-      updatedHtml = updatedHtml.replace(
-        m.fullTag,
-        `<span class="image-desc" data-image="${name}">${renderedDesc}</span>`
-      );
-      images.push({
-        name,
-        data: parsed.data,
-        mimeType: m.mimeType,
-        description: parsed.description,
-      });
-    } else if (isDecorative) {
+    if (isDecorative) {
       // Decorative image: drop the img tag but leave a marker so
       // the user can see in the text body that SOMETHING was there.
       // Silently removing leaves the math expression broken (e.g.
@@ -199,17 +180,25 @@ async function parseImagesInHtml(
       // for the strategy rationale.
       updatedHtml = updatedHtml.replace(m.fullTag, INLINE_IMAGE_MARKER);
     } else {
-      // Inline formula image (small) or vision-failed-but-not-decorative:
-      // keep the original img tag for direct rendering in the HTML view.
-      // Previously only images < VISION_THRESHOLD got this treatment;
-      // vision-failed images fell through to the decorative path and
-      // became □, which made formulas disappear when Ollama was down.
+      // ALL non-decorative images: keep the original img tag so the
+      // original docx rendering (including □ torn-corner markers,
+      // hand-drawn symbols, etc.) is preserved in contentHtml.
+      //
+      // Vision-described images previously replaced the <img> with
+      // a <span class="image-desc"> of KaTeX-rendered text, which
+      // lost non-standard characters (□, custom drawings) that the
+      // vision model failed to recognize. Now we keep the <img> and
+      // put the vision description in title/alt attributes — the
+      // original image always renders, and the description is
+      // available as fallback and tooltip.
       imgIndex++;
       const ext = m.mimeType.split("/")[1] || "png";
       const name = `q${questionNum}_img${imgIndex}.${ext}`;
+      const visionDesc = parsed?.description || "";
+      const altText = visionDesc || INLINE_IMAGE_MARKER;
       updatedHtml = updatedHtml.replace(
         m.fullTag,
-        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" alt="${INLINE_IMAGE_MARKER}" style="height:1.3em;display:inline-block;vertical-align:middle;border-radius:2px;" />`
+        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" alt="${altText}" title="${visionDesc}" style="max-width:100%;height:auto;display:inline-block;vertical-align:middle;border-radius:2px;" />`
       );
       const base64Content = m.base64Src.split(",")[1];
       const data = Uint8Array.from(atob(base64Content), (c) =>
@@ -219,20 +208,17 @@ async function parseImagesInHtml(
         name,
         data,
         mimeType: m.mimeType,
-        description: "",
+        description: visionDesc,
       });
     }
   }
 
-  // For vision-described images, mark the position in the text so
-  // the user always sees where content was machine-recognized.
-  // The [图: desc] format is already handled by MathContent (unwraps
-  // to just desc in rich view) and cleanLatexDelimiters (passes
-  // through unchanged).
+  // Build the plain-text view: all non-decorative images become □
+  // to preserve position markers. The vision description is available
+  // in the <img title> attribute and in content_images.
   const text = cleanLatexDelimiters(
     updatedHtml
       .replace(INLINE_FORMULA_IMG_RE, INLINE_IMAGE_MARKER)
-      .replace(/<span class="image-desc"[^>]*>(.*?)<\/span>/g, "[图: $1] ")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim(),
@@ -305,21 +291,6 @@ function cleanLatexDelimiters(s: string): string {
   }
   result += s.slice(cursor);
   return result;
-}
-
-function renderInlineMath(text: string): string {
-  // Replace $...$ with KaTeX-rendered HTML
-  return text.replace(/\$([^$]+)\$/g, (_, latex) => {
-    try {
-      return katex.renderToString(latex.trim(), {
-        displayMode: false,
-        throwOnError: false,
-        strict: false,
-      });
-    } catch {
-      return `$${latex}$`;
-    }
-  });
 }
 
 export async function parseWordDocument(

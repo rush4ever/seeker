@@ -61,14 +61,7 @@ test.describe("Word 导入流程", () => {
     // Q1 should be visible with math content
     await expect(page.locator("text=小敏同学")).toBeVisible({ timeout: 10000 });
 
-    // Check that KaTeX rendered formulas are present (look for katex HTML classes)
-    const katexElements = page.locator('.katex');
-    await expect(katexElements.first()).toBeVisible({ timeout: 10000 });
-    const katexCount = await katexElements.count();
-    expect(katexCount).toBeGreaterThan(0);
-    console.log(`Found ${katexCount} KaTeX-rendered formulas`);
-
-    // Check inline formula images are present (small images rendered inline)
+    // Check inline formula images are present (formulas rendered as inline img)
     const inlineImages = page.locator('img.inline-formula');
     const inlineCount = await inlineImages.count();
     console.log(`Found ${inlineCount} inline formula images`);
