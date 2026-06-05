@@ -236,6 +236,9 @@ export default function QuestionsPage() {
     const status = await checkOllama();
     if (!status.available) {
       setBatchProgress(null);
+      toast.error("Ollama 不可用", {
+        description: "请确认 Ollama 已启动 (http://localhost:11434)",
+      });
       return;
     }
 
@@ -298,8 +301,16 @@ export default function QuestionsPage() {
               );
             }
             success++;
-          } catch {
+          } catch (e) {
             failed++;
+            const errMsg = e instanceof Error ? e.message : String(e);
+            console.error("批量分析失败:", q.id, errMsg);
+            // Only show the first failure detail so the user can act on it
+            if (failed === 1) {
+              toast.error("分析失败", {
+                description: errMsg.length > 120 ? errMsg.slice(0, 120) + "…" : errMsg,
+              });
+            }
           }
         })
       );
