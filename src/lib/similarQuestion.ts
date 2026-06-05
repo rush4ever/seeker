@@ -32,6 +32,14 @@ ${originalQuestion}
 请以 JSON 数组格式返回，每个元素包含字段：content(题目内容), answer(标准答案), explanation(解题思路)。`;
 }
 
+/**
+ * Fix: JSON parser interprets \f in LaTeX commands (\frac, \dfrac, etc.)
+ * as form-feed (0x0C). Replace form-feed with literal \f to restore LaTeX.
+ */
+function fixLatex(s: string): string {
+  return s ? s.replace(/\f/g, "\\f") : s;
+}
+
 export function parseSimilarQuestionResponse(response: string): SimilarQuestion[] {
   // Try to extract JSON from markdown code block
   const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -45,9 +53,9 @@ export function parseSimilarQuestionResponse(response: string): SimilarQuestion[
     }
 
     return parsed.map((item: Record<string, unknown>) => ({
-      content: typeof item.content === "string" ? item.content : "",
-      answer: typeof item.answer === "string" ? item.answer : "",
-      explanation: typeof item.explanation === "string" ? item.explanation : "",
+      content: fixLatex(typeof item.content === "string" ? item.content : ""),
+      answer: fixLatex(typeof item.answer === "string" ? item.answer : ""),
+      explanation: fixLatex(typeof item.explanation === "string" ? item.explanation : ""),
     }));
   } catch {
     return [];

@@ -53,7 +53,10 @@ export function parseGradingResult(raw: string): GradingResult {
   if (jsonMatch) {
     try {
       const jsonStr = jsonMatch[1] || jsonMatch[0];
-      const parsed = JSON.parse(jsonStr) as Partial<GradingResult>;
+      // Fix: JSON parser interprets \f as form-feed (0x0C), corrupting
+      // LaTeX commands like \frac. Replace form-feed with literal \f.
+      const cleaned = jsonStr.replace(/\f/g, "\\f");
+      const parsed = JSON.parse(cleaned) as Partial<GradingResult>;
       const isCorrect = Number(parsed.isCorrect);
       return {
         isCorrect: (isCorrect >= 0 && isCorrect <= 3 ? isCorrect : 3) as GradingResult["isCorrect"],

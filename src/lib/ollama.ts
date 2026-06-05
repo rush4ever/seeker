@@ -2,6 +2,14 @@ import { resolveModel } from "./models";
 
 const OLLAMA_BASE = "http://localhost:11434";
 
+/**
+ * Fix: JSON parser interprets \f in LaTeX commands (\frac, \dfrac, etc.)
+ * as form-feed (0x0C). Replace form-feed with literal \f to restore LaTeX.
+ */
+function fixLatex(s: string): string {
+  return s ? s.replace(/\f/g, "\\f") : s;
+}
+
 export interface OllamaResponse {
   model: string;
   response: string;
@@ -65,13 +73,14 @@ export async function analyzeQuestion(
 
   try {
     const parsed = JSON.parse(data.response) as AnalysisResult;
+
     return {
-      knowledgePoints: parsed.knowledgePoints || [],
+      knowledgePoints: (parsed.knowledgePoints || []).map(fixLatex),
       errorCause: parsed.errorCause || "unknown",
       difficulty: parsed.difficulty || "medium",
-      solutionApproach: parsed.solutionApproach || "",
+      solutionApproach: fixLatex(parsed.solutionApproach || ""),
       solutionSteps: Array.isArray(parsed.solutionSteps)
-        ? parsed.solutionSteps
+        ? parsed.solutionSteps.map(fixLatex)
         : [],
     };
   } catch {
@@ -117,12 +126,12 @@ function extractFromRawText(text: string): AnalysisResult {
     try {
       const parsed = JSON.parse(jsonMatch[0]) as AnalysisResult;
       return {
-        knowledgePoints: parsed.knowledgePoints || [],
+        knowledgePoints: (parsed.knowledgePoints || []).map(fixLatex),
         errorCause: parsed.errorCause || "unknown",
         difficulty: parsed.difficulty || "medium",
-        solutionApproach: parsed.solutionApproach || "",
+        solutionApproach: fixLatex(parsed.solutionApproach || ""),
         solutionSteps: Array.isArray(parsed.solutionSteps)
-          ? parsed.solutionSteps
+          ? parsed.solutionSteps.map(fixLatex)
           : [],
       };
     } catch {
@@ -135,7 +144,7 @@ function extractFromRawText(text: string): AnalysisResult {
     knowledgePoints: [],
     errorCause: "unknown",
     difficulty: "medium",
-    solutionApproach: text.slice(0, 200),
+    solutionApproach: fixLatex(text.slice(0, 200)),
     solutionSteps: [],
   };
 }
