@@ -65,8 +65,10 @@ function analysisText(question: Question): string {
   //
   // Example: □ □（$(-1)\times\frac{1}{5-a}=\frac{1}{a-4}$）
   // becomes: □（$(□-1)\times\frac{1}{5-a}=\frac{1}{a-4}$）
+  //
+  // Handles both single $...$ and double $$...$$ wrapping.
   result = result.replace(
-    /□\s*□（\$([^$]+)\$）/g,
+    /□\s*□（\${1,2}([^$]+)\${1,2}）/g,
     (_match: string, formula: string) => `□（$(□${formula}$）`,
   );
 

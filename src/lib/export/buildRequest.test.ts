@@ -3,6 +3,7 @@ import {
   buildExportRequest,
   parseContentImages,
   toRenderable,
+  contentHtmlToExportText,
   ERROR_CAUSE_MAP,
   DIFFICULTY_MAP,
 } from "./buildRequest";
@@ -141,6 +142,20 @@ describe("parseContentImages", () => {
 
   it("handles empty arrays", () => {
     expect(parseContentImages("[]")).toEqual([]);
+  });
+});
+
+describe("contentHtmlToExportText - double-dollar regression", () => {
+  it("does NOT double-wrap already-$ LaTeX from vision model", () => {
+    // Use String.raw to avoid JS interpreting \t, \f as escape chars
+    const title = String.raw`$(-1)\times\frac{1}{5-a}=\frac{1}{a-4}$`;
+    const imgWithDollar = String.raw`<p>中"<img class="inline-formula" alt="□" title="` + title + String.raw`" />"代表的是（ ）</p>`;
+    const out = contentHtmlToExportText(imgWithDollar);
+    // The output should have single $ wrapping, not double $$
+    expect(out).toContain("$(-1)");
+    expect(out).not.toContain("$$(-1)");
+    // Check that the label is wrapped in single $...$ with □
+    expect(out).toMatch(/□\（\s*\$[^$]+\$\s*\）/);
   });
 });
 

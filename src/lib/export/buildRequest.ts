@@ -185,7 +185,9 @@ export function toRenderable(q: ExportQuestionInput): RenderableQuestion {
  */
 export function contentHtmlToExportText(contentHtml: string | null): string {
   if (!contentHtml) return "";
-  // 1. inline-formula with title → □（公式：$title$）
+  // 1. inline-formula with title → □（$...$）
+  //    Vision model output may already have $...$ wrapping; strip it
+  //    before re-wrapping to avoid $$...$$ double-dollars.
   // 2. inline-formula without title → □
   // 3. other img tags → □
   // 4. strip remaining HTML tags
@@ -194,7 +196,9 @@ export function contentHtmlToExportText(contentHtml: string | null): string {
       /<img[^>]*class="inline-formula"[^>]*title="([^"]*)"[^>]*\/?>/gi,
       (_match, title: string) => {
         const trimmed = title.trim();
-        return trimmed ? " □（" + "$" + trimmed + "$" + "）" : " □ ";
+        // Strip existing $ wrapping so we always produce single $...$
+        const stripped = trimmed.replace(/^[\s$]*(.*?)[\s$]*$/s, "$1");
+        return stripped ? ` □（ $${stripped}$ ）` : " □ ";
       },
     )
     .replace(/<img[^>]*\/?>/gi, " □ ")
