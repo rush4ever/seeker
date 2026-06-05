@@ -7,15 +7,27 @@ import { getAllKnowledgeNodes } from "../lib/knowledgeTree";
 
 /**
  * Build the richest available text for AI analysis.
- * Prefers vision-identified content (LaTeX from content_html) over
- * plain text (which may contain □ position markers).
+ * Combines two sources:
+ *   - original text with □ position markers from question.content
+ *   - vision-identified LaTeX from content_html
+ *
+ * The □ markers are critical context that the vision model often drops
+ * (e.g. identifying "(-1)" instead of "(□-1)"). The LLM needs both
+ * to understand the problem correctly.
  */
 function analysisText(question: Question): string {
+  // Start with the original text (has □ position markers)
+  const parts = [question.content];
+
+  // Append rich LaTeX text from vision model as extra context
   if (question.content_html) {
     const rich = contentHtmlToExportText(question.content_html);
-    if (rich) return rich;
+    if (rich && rich !== question.content) {
+      parts.push(`（公式图片识别：${rich}）`);
+    }
   }
-  return question.content;
+
+  return parts.join("\n");
 }
 
 interface AnalysisState {
