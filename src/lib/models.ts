@@ -8,7 +8,7 @@ interface ModelConfig {
 }
 
 export const MODEL_CONFIG: Record<ModelRole, ModelConfig> = {
-  reasoning: { default: "kimi-k2.5:cloud", fallback: "qwen2.5:32b" },
+  reasoning: { default: "qwen2.5:32b", fallback: "qwen2.5:7b" },
   vision: { default: "qwen2.5vl:7b", fallback: "llava:13b" },
   lightweight: { default: "qwen2.5:7b" },
 };
