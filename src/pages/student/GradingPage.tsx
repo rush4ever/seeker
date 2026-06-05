@@ -8,8 +8,10 @@ import PhotoUploader from "../../components/grading/PhotoUploader";
 import QuestionGradingCard from "../../components/grading/QuestionGradingCard";
 import ResultPanel from "../../components/grading/ResultPanel";
 import { Camera } from "lucide-react";
+import { toast } from "sonner";
 import EmptyState from "../../components/common/EmptyState";
 import { calculateMastery, shouldGraduate } from "../../lib/graduation";
+import { resolveModel } from "../../lib/models";
 
 // Demo data for development — will be replaced with session loading
 const DEMO_QUESTIONS: GeneratedQuestion[] = [
@@ -95,6 +97,20 @@ export default function GradingPage() {
       );
 
       try {
+        // Check vision model availability before starting
+        const visionModel = await resolveModel("vision");
+        if (!visionModel) {
+          toast.error("OCR 不可用", {
+            description: "未找到视觉模型 (qwen2.5vl)，请确认 Ollama 已启动",
+          });
+          setItems((prev) =>
+            prev.map((it, i) =>
+              i === activeIndex ? { ...it, status: "pending" } : it
+            )
+          );
+          return;
+        }
+
         // Save photo via Tauri
         const photoPath = (await invoke("save_answer_photo", {
           studentId: currentStudent.id,
@@ -136,6 +152,9 @@ export default function GradingPage() {
         );
       } catch (err) {
         console.error("Grading error:", err);
+        toast.error("批改失败", {
+          description: err instanceof Error ? err.message.substring(0, 100) : "请稍后重试",
+        });
         setItems((prev) =>
           prev.map((it, i) =>
             i === activeIndex ? { ...it, status: "pending" } : it
