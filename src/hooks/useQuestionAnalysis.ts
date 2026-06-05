@@ -3,31 +3,60 @@ import type { Question, ErrorCause, Difficulty } from "../types";
 import { getDb } from "../lib/db";
 import { checkOllamaStatus, analyzeQuestion } from "../lib/ollama";
 import { contentHtmlToExportText } from "../lib/export/buildRequest";
+import { INLINE_IMAGE_MARKER } from "../lib/textMarkers";
 import { getAllKnowledgeNodes } from "../lib/knowledgeTree";
 
 /**
  * Build the richest available text for AI analysis.
- * Combines two sources:
- *   - original text with □ position markers from question.content
- *   - vision-identified LaTeX from content_html
  *
- * The □ markers are critical context that the vision model often drops
- * (e.g. identifying "(-1)" instead of "(□-1)"). The LLM needs both
- * to understand the problem correctly.
+ * Merges vision-identified LaTeX into the position of each □ marker,
+ * so the LLM sees each formula label right next to its □ instead of
+ * having to count positions.
+ *
+ * Example output:
+ *   ...中"□（$(-1)\times\frac{1}{5-a}=\frac{1}{a-4}$）"代表的是（ ）
+ *   □（$\frac{1}{4-a}$）A. □（$\frac{9-2a}{a-4}$）B. ...
  */
 function analysisText(question: Question): string {
-  // Start with the original text (has □ position markers)
-  const parts = [question.content];
+  const base = question.content;
+  if (!base) return "";
 
-  // Append rich LaTeX text from vision model as extra context
+  // Get ordered formula labels from content_html
+  const labels: string[] = [];
   if (question.content_html) {
     const rich = contentHtmlToExportText(question.content_html);
-    if (rich && rich !== question.content) {
-      parts.push(`（公式图片识别：${rich}）`);
+    // Split into segments by □, keeping the text that follows each □
+    // Format: "□（...）any text□（...） □ □（...）..."
+    const parts = rich.split(INLINE_IMAGE_MARKER);
+    // parts[0] is text before first □ (empty or whitespace)
+    // parts[1] is what follows the first □ up to the second □
+    // ... etc
+    for (let i = 1; i < parts.length; i++) {
+      // Extract just the （...） part from what follows □
+      const parenMatch = parts[i].match(/^（([^）]*)）/);
+      if (parenMatch) {
+        labels.push(parenMatch[1]); // e.g. "$(-1)\times\frac{1}{5-a}=\frac{1}{a-4}$"
+      } else {
+        // Just a bare □ with no label
+        labels.push("");
+      }
     }
   }
 
-  return parts.join("\n");
+  if (labels.length === 0) return base;
+
+  // Replace each □ in base text with □（label）
+  let labelIdx = 0;
+  const result = base.replace(new RegExp(INLINE_IMAGE_MARKER, "g"), () => {
+    const label = labelIdx < labels.length ? labels[labelIdx] : "";
+    labelIdx++;
+    if (label) {
+      return `${INLINE_IMAGE_MARKER}（${label}）`;
+    }
+    return INLINE_IMAGE_MARKER;
+  });
+
+  return result;
 }
 
 interface AnalysisState {
