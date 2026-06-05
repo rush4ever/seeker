@@ -198,7 +198,7 @@ async function parseImagesInHtml(
       const altText = visionDesc || INLINE_IMAGE_MARKER;
       updatedHtml = updatedHtml.replace(
         m.fullTag,
-        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" alt="${altText}" title="${visionDesc}" style="max-width:100%;height:auto;display:inline-block;vertical-align:middle;border-radius:2px;" />`
+        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" alt="${altText}" title="${visionDesc}" style="height:1.5em;width:auto;display:inline-block;vertical-align:middle;border-radius:2px;" />`
       );
       const base64Content = m.base64Src.split(",")[1];
       const data = Uint8Array.from(atob(base64Content), (c) =>
