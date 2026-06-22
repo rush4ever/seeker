@@ -2,74 +2,36 @@ import { useState, useCallback } from "react";
 import type { Question, ErrorCause, Difficulty } from "../types";
 import { getDb } from "../lib/db";
 import { checkOllamaStatus, analyzeQuestion } from "../lib/ollama";
-import { contentHtmlToExportText } from "../lib/export/buildRequest";
-import { INLINE_IMAGE_MARKER } from "../lib/textMarkers";
 import { getAllKnowledgeNodes } from "../lib/knowledgeTree";
 
 /**
  * Build the richest available text for AI analysis.
  *
- * Merges vision-identified LaTeX into the position of each □ marker,
- * so the LLM sees each formula label right next to its □ instead of
- * having to count positions.
+ * Since v2, `content` already contains vision-model labels baked in
+ * by the Word import pipeline (parseImagesInHtml replaces inline
+ * formula images with □（$formula$）).  This function only needs to:
+ *  1. Clean stray `□（）` (decorative images with empty vision result)
+ *  2. Fix common vision-model mistakes like `(-1)` → `(□-1)`
  *
  * Example output:
- *   ...中"□（$(-1)\times\frac{1}{5-a}=\frac{1}{a-4}$）"代表的是（ ）
+ *   ...中"□（$(□-1)\times\frac{1}{5-a}=\frac{1}{a-4}$）"代表的是（ ）
  *   □（$\frac{1}{4-a}$）A. □（$\frac{9-2a}{a-4}$）B. ...
  */
 function analysisText(question: Question): string {
-  const base = question.content;
-  if (!base) return "";
+  let result = question.content;
+  if (!result) return "";
 
-  // Get ordered formula labels from content_html
-  const labels: string[] = [];
-  if (question.content_html) {
-    const rich = contentHtmlToExportText(question.content_html);
-    // Split into segments by □, keeping the text that follows each □
-    // Format: "□（...）any text□（...） □ □（...）..."
-    const parts = rich.split(INLINE_IMAGE_MARKER);
-    // parts[0] is text before first □ (empty or whitespace)
-    // parts[1] is what follows the first □ up to the second □
-    // ... etc
-    for (let i = 1; i < parts.length; i++) {
-      // Extract just the （...） part from what follows □
-      const parenMatch = parts[i].match(/^（([^）]*)）/);
-      if (parenMatch) {
-        labels.push(parenMatch[1]); // e.g. "$(-1)\times\frac{1}{5-a}=\frac{1}{a-4}$"
-      } else {
-        // Just a bare □ with no label
-        labels.push("");
-      }
-    }
-  }
+  // 1. Clean empty □（）from decorative images that had no vision result
+  result = result.replace(/□（\s*）/g, "□");
 
-  if (labels.length === 0) return base;
-
-  // Replace each □ in base text with □（label）
-  let labelIdx = 0;
-  let result = base.replace(new RegExp(INLINE_IMAGE_MARKER, "g"), () => {
-    const label = labelIdx < labels.length ? labels[labelIdx] : "";
-    labelIdx++;
-    if (label) {
-      return `${INLINE_IMAGE_MARKER}（${label}）`;
-    }
-    return INLINE_IMAGE_MARKER;
-  });
-
-  // Second pass: merge adjacent bare □ + labeled □ into one.
-  // In the Word doc, the □ character and its surrounding math expression
-  // are often split into two separate images (e.g., a 302B □ PNG and a
-  // 53KB formula PNG). The bare □ is the torn-corner marker, and the
-  // labeled □ is the formula that contains it. We merge them so the
-  // LLM sees □ INSIDE the formula expression.
-  //
-  // Example: □ □（$(-1)\times\frac{1}{5-a}=\frac{1}{a-4}$）
-  // becomes: □（$(□-1)\times\frac{1}{5-a}=\frac{1}{a-4}$）
-  //
-  // Handles both single $...$ and double $$...$$ wrapping.
+  // 2. Fix common vision-model mistakes.
+  //    The vision model sees the formula image WITHOUT the separate □
+  //    (tear-marker) image, so if the formula starts with (-N), the □
+  //    belongs inside the parens: (□-N).  Handle any parenthesized
+  //    expression at the start of a $...$ block.
   result = result.replace(
-    /□\s*□（\${1,2}([^$]+)\${1,2}）/g,
-    (_match: string, formula: string) => `□（$(□${formula}$）`,
+    /□（\$\s*\((-\d+(?:\.\d+)?)/g,
+    '□（$(□$1',
   );
 
   return result;

@@ -6,7 +6,7 @@ import { buildQuickPracticeTitle, formatWeakPointNames } from "../../lib/quickPr
 import type { Question } from "../../types";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
 import { useToast } from "../../components/common/useToast";
-import { Target, BookOpen, Brain, ArrowRight, TrendingUp, Loader2 } from "lucide-react";
+import { Target, BookOpen, Brain, ArrowRight, TrendingUp, Loader2, FileUp } from "lucide-react";
 import { masteryTextClass, masteryBarClass } from "../../lib/mastery";
 import EmptyState from "../../components/common/EmptyState";
 
@@ -106,6 +106,23 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6">
+      {/* Import Error Questions Card */}
+      <div
+        className="notion-card cursor-pointer hover:shadow-notion-hover transition-shadow border-2 border-dashed border-primary-200 bg-primary-50/30"
+        onClick={() => setActivePage("questions")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FileUp size={24} className="text-primary-500" />
+            <div>
+              <h3 className="text-base font-semibold text-notion-text">导入错题</h3>
+              <p className="text-sm text-notion-muted">支持 Word 文档（.docx），自动识别学科归类</p>
+            </div>
+          </div>
+          <ArrowRight size={18} className="text-notion-subtle shrink-0" />
+        </div>
+      </div>
+
       {/* Quick Practice Card */}
       <div className="notion-card bg-notion-accent-bg border-notion-border">
         <div className="flex items-start justify-between">
