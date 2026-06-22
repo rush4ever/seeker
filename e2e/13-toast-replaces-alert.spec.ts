@@ -29,7 +29,7 @@ test.describe("Toast 取代 alert", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=Toast 测试生");
+    // Student is auto-selected after creation
 
     // Navigate to 错题本 where the import button + file input live
     await page.click("text=错题本");

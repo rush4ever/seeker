@@ -19,7 +19,7 @@ test.describe("#2 手动加题", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=手添测试生");
+    // Student is auto-selected after creation, navigate to questions page
 
     // open form
     await page.click("text=错题本");
@@ -54,7 +54,7 @@ test.describe("#2 手动加题", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=校验测试生");
+    // Student is auto-selected after creation
 
     await page.click("text=错题本");
     await page.getByRole("button", { name: "添加", exact: true }).click();

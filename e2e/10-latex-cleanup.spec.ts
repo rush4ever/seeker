@@ -25,7 +25,7 @@ test.describe("LaTeX $ 清理（渲染时）", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=$ 测试生");
+    // Student is auto-selected after creation
 
     // Seed: a question with the EXACT bug the user reported — dangling
     // $ at start and end. Simulates legacy / pre-fix data.

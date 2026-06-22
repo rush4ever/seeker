@@ -21,7 +21,7 @@ test.describe("详情 modal UX", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=详情测试生");
+    // Student is auto-selected after creation
 
     // Seed: a math knowledge node, an active question that's been
     // "analyzed" (has error_cause/difficulty + solution_approach + JSON
@@ -168,7 +168,7 @@ test.describe("详情 modal UX", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=多图测试生");
+    // Student is auto-selected after creation
 
     await page.evaluate(async () => {
       const mod = await import("/src/lib/db.ts");
@@ -243,7 +243,7 @@ test.describe("详情 modal UX", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=缩略图测试生");
+    // Students is auto-selected after creation
 
     await page.evaluate(async () => {
       const mod = await import("/src/lib/db.ts");
@@ -291,7 +291,7 @@ test.describe("详情 modal UX", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=未分析测试生");
+    // Student is auto-selected after creation
 
     await page.evaluate(async () => {
       const mod = await import("/src/lib/db.ts");

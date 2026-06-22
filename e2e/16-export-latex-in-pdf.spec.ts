@@ -27,7 +27,7 @@ test.describe("LaTeX 公式在 PDF 中渲染 (Tauri-mock 路径)", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=LaTeX 测试生");
+    // Student is auto-selected after creation
     await page.evaluate(async () => {
       const mod = await import("/src/lib/db.ts");
       const db = await mod.getDb();

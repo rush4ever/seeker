@@ -12,8 +12,8 @@ async function setupTestStudent(page: any, name: string = "邵瀚文") {
   await page.selectOption("select >> nth=0", "8");
   await page.selectOption("select >> nth=1", "2");
   await page.click('button:has-text("添加")');
-  await expect(page.locator(`text=${name}`)).toBeVisible({ timeout: 5000 });
-  await page.click(`text=${name}`);
+  // Student is auto-selected after creation — verify the header shows it
+  await expect(page.locator('h1').filter({ hasText: name })).toBeVisible({ timeout: 5000 });
 }
 
 async function seedQuestions(page: any) {

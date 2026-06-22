@@ -31,7 +31,7 @@ test.describe("PDF / Word 导出 (Tauri-mock 路径)", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=导出测试生");
+    // Student is auto-selected after creation
 
     await page.evaluate(async () => {
       const mod = await import("/src/lib/db.ts");
@@ -84,7 +84,7 @@ test.describe("PDF / Word 导出 (Tauri-mock 路径)", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=Word 导出测试");
+    // Student is auto-selected after creation
 
     await page.evaluate(async () => {
       const mod = await import("/src/lib/db.ts");
@@ -127,7 +127,7 @@ test.describe("PDF / Word 导出 (Tauri-mock 路径)", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=空题测试生");
+    // Student is auto-selected after creation
 
     await page.click("text=错题本");
     await page.waitForTimeout(400);

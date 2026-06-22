@@ -14,8 +14,8 @@ async function setupTestStudent(page: any, name: string = "导入测试生") {
   await page.selectOption("select >> nth=0", "8");
   await page.selectOption("select >> nth=1", "2");
   await page.click('button:has-text("添加")');
-  await expect(page.locator(`text=${name}`)).toBeVisible({ timeout: 5000 });
-  await page.click(`text=${name}`);
+  // Student is auto-selected after creation — verify the header shows it
+  await expect(page.locator('h1').filter({ hasText: name })).toBeVisible({ timeout: 5000 });
 }
 
 test.describe("Word 导入流程", () => {
@@ -49,7 +49,7 @@ test.describe("Word 导入流程", () => {
 
     // Wait for confirmation dialog
     await expect(page.locator('h3:has-text("确认导入")')).toBeVisible({ timeout: 120000 });
-    await expect(page.locator("text=共解析出")).toBeVisible();
+    await expect(page.locator("text=解析出 12 道错题")).toBeVisible();
 
     // Confirm import
     await page.click('button:has-text("确认导入")');

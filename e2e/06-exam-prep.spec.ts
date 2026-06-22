@@ -19,7 +19,7 @@ test.describe("#19 考前模式", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=考前测试生");
+    // Student is auto-selected after creation
 
     // Seed: one root-level knowledge node + one question linked to it.
     // Using a root-level (parent_id=NULL) node so it's visible at depth=0

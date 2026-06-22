@@ -38,7 +38,7 @@ test.describe("浏览器模式导出 (real download)", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=浏览器导出生");
+    // Student is auto-selected after creation
     await page.evaluate(async () => {
       const mod = await import("/src/lib/db.ts");
       const db = await mod.getDb();

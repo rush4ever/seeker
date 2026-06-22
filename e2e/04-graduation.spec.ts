@@ -15,7 +15,7 @@ test.describe("#21 毕业触发", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=毕业测试生");
+    // Student is auto-selected after creation
 
     // 2. Seed: one graduated + one active (with content_html for visible rendering)
     await page.evaluate(async () => {

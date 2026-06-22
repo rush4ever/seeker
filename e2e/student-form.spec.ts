@@ -24,8 +24,8 @@ test.describe("添加学生 (PRD User Story 30)", () => {
     await page.selectOption('select >> nth=1', '1');
     await page.click('button:has-text("添加")');
 
-    // 提交后表单应关闭，学生应出现在列表中
-    await expect(page.locator('text=测试学生')).toBeVisible({ timeout: 5000 });
+    // 提交后表单应关闭，学生被自动选中
+    await expect(page.locator('h1').filter({ hasText: '测试学生' })).toBeVisible({ timeout: 5000 });
   });
 
   test("取消添加学生", async ({ page }) => {

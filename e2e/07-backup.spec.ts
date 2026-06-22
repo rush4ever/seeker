@@ -19,7 +19,7 @@ test.describe("M11 备份", () => {
     await page.selectOption("select >> nth=0", "8");
     await page.selectOption("select >> nth=1", "2");
     await page.click('button:has-text("添加")');
-    await page.click("text=备份测试生");
+    // Student is auto-selected after creation
 
     // switch to parent
     await page.getByRole("button", { name: /学生模式/ }).click();
