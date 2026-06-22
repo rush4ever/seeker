@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import ExportButtonGroup from "../../components/export/ExportButtonGroup";
 import ManualAddQuestionForm from "../../components/question/ManualAddQuestionForm";
+import AIChatBox from "../../components/question/AIChatBox";
 import { useToast } from "../../components/common/useToast";
 
 function subjectLabel(s: Subject): string {
@@ -53,7 +54,7 @@ function arrayBufferToBase64(data: Uint8Array): string {
 export default function QuestionsPage() {
   const { currentStudent } = useApp();
   const toast = useToast();
-  const { questions, loading, addQuestions, remove, refresh } =
+  const { questions, loading, remove, refresh } =
     useQuestions(currentStudent?.id);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<ParseProgress | null>(null);
@@ -68,11 +69,12 @@ export default function QuestionsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Import confirmation dialog state
-  const [pendingImport, setPendingImport] = useState<{
+  interface PendingFile {
     fileName: string;
     parsedQuestions: Awaited<ReturnType<typeof parseWordDocument>>["questions"];
     subject: Subject;
-  } | null>(null);
+  }
+  const [pendingImports, setPendingImports] = useState<PendingFile[]>([]);
 
   const {
     ollamaAvailable,
@@ -103,22 +105,25 @@ export default function QuestionsPage() {
 
   const handleFileSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file || !currentStudent) return;
+      const files = e.target.files;
+      if (!files || files.length === 0 || !currentStudent) return;
 
       setImporting(true);
-      setImportProgress(null);
+      setImportProgress({ phase: "structure", current: 0, total: files.length, message: "准备解析..." });
       try {
-        const result = await parseWordDocument(file, (progress) => {
-          setImportProgress(progress);
-        });
-        const guessedSubject: Subject = file.name.includes("物理") ? "physics" : "math";
-
-        setPendingImport({
-          fileName: file.name,
-          parsedQuestions: result.questions,
-          subject: guessedSubject,
-        });
+        const results: PendingFile[] = [];
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          setImportProgress({ phase: "structure", current: i + 1, total: files.length, message: `解析 ${file.name}` });
+          const result = await parseWordDocument(file);
+          const guessedSubject: Subject = file.name.includes("物理") ? "physics" : "math";
+          results.push({
+            fileName: file.name,
+            parsedQuestions: result.questions,
+            subject: guessedSubject,
+          });
+        }
+        setPendingImports(results);
       } catch (err) {
         toast.error("导入失败", { description: err instanceof Error ? err.message : String(err) });
       } finally {
@@ -131,53 +136,70 @@ export default function QuestionsPage() {
   );
 
   const handleConfirmImport = useCallback(async () => {
-    if (!pendingImport || !currentStudent) return;
+    if (pendingImports.length === 0 || !currentStudent) return;
 
     setImporting(true);
+    const totalQuestions = pendingImports.reduce((s, f) => s + f.parsedQuestions.length, 0);
+    setImportProgress({ phase: "structure", current: 0, total: totalQuestions, message: "开始导入..." });
     try {
-      const newQuestions = pendingImport.parsedQuestions.map((q) => {
-        // Serialize images to base64 for database storage
-        const contentImages = q.images.length > 0
-          ? JSON.stringify(
-              q.images.map((img) => ({
-                name: img.name,
-                data: arrayBufferToBase64(img.data),
-                mimeType: img.mimeType,
-                description: img.description,
-              }))
-            )
-          : null;
+      const db = await getDb();
+      let inserted = 0;
 
-        return {
-          student_id: currentStudent.id,
-          subject: pendingImport.subject,
-          source_type: "word_import" as const,
-          source_file: pendingImport.fileName,
-          number_in_source: q.number,
-          question_type: q.type,
-          chapter: q.chapter,
-          answer_date: q.answerDate,
-          content: q.content,
-          content_html: q.contentHtml,
-          content_html_original: q.rawHtml,
-          content_images: contentImages,
-          student_answer: null,
-          correct_answer: q.correctAnswer,
-          error_cause: null,
-          difficulty: null,
-          mastery_score: 0,
-          status: "active" as const,
-        };
-      });
+      for (const pending of pendingImports) {
+        for (const q of pending.parsedQuestions) {
+          inserted++;
 
-      await addQuestions(newQuestions);
-      setPendingImport(null);
+          const contentImages = q.images.length > 0
+            ? JSON.stringify(
+                q.images.map((img) => ({
+                  name: img.name,
+                  data: arrayBufferToBase64(img.data),
+                  mimeType: img.mimeType,
+                  description: img.description,
+                }))
+              )
+            : null;
+
+          setImportProgress({ phase: "structure", current: inserted, total: totalQuestions, message: `写入第 ${inserted}/${totalQuestions} 题` });
+          await db.execute(
+            `INSERT INTO questions (
+              student_id, subject, source_type, source_file, number_in_source,
+              question_type, chapter, answer_date, content, content_html, content_html_original, content_images,
+              correct_answer, error_cause, difficulty, mastery_score, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+            [
+              currentStudent.id,
+              pending.subject,
+              "word_import" as const,
+              pending.fileName,
+              q.number,
+              q.type,
+              q.chapter,
+              q.answerDate,
+              q.content,
+              q.contentHtml ?? null,
+              q.rawHtml ?? null,
+              contentImages,
+              q.correctAnswer,
+              null, // error_cause
+              null, // difficulty
+              0,    // mastery_score
+              "active" as const,
+            ]
+          );
+        }
+      }
+
+      await refresh();
+      setPendingImports([]);
+      toast.success(`成功导入 ${totalQuestions} 道错题`);
     } catch (err) {
       toast.error("导入失败", { description: err instanceof Error ? err.message : String(err) });
     } finally {
       setImporting(false);
+      setImportProgress(null);
     }
-  }, [pendingImport, currentStudent, addQuestions]);
+  }, [pendingImports, currentStudent, refresh]);
 
   const handleAnalyze = useCallback(
     async (question: Question) => {
@@ -469,6 +491,7 @@ export default function QuestionsPage() {
             ref={fileInputRef}
             type="file"
             accept=".docx"
+            multiple
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -530,39 +553,52 @@ export default function QuestionsPage() {
       )}
 
       {/* Import confirmation dialog */}
-      {pendingImport && (
+      {pendingImports.length > 0 && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-notion p-6 w-96 shadow-xl">
+          <div className="bg-white rounded-notion p-6 w-[480px] shadow-xl max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-notion-text mb-4">确认导入</h3>
             <p className="text-sm text-notion-muted mb-4">
-              文件: <span className="font-medium">{pendingImport.fileName}</span>
-              <br />
-              共解析出 <span className="font-medium">{pendingImport.parsedQuestions.length}</span> 道错题
+              共 <span className="font-medium">{pendingImports.length}</span> 个文件，
+              解析出 <span className="font-medium">{pendingImports.reduce((s, f) => s + f.parsedQuestions.length, 0)}</span> 道错题
             </p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-notion-text mb-2">学科</label>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setPendingImport({ ...pendingImport, subject: "math" })}
-                  className={`flex-1 py-2 rounded-notion border text-sm font-medium transition-colors ${
-                    pendingImport.subject === "math"
-                      ? "bg-notion-accent-bg border-primary-300 text-notion-text"
-                      : "border-notion-border text-notion-muted hover:bg-notion-surface"
-                  }`}
-                >
-                  数学
-                </button>
-                <button
-                  onClick={() => setPendingImport({ ...pendingImport, subject: "physics" })}
-                  className={`flex-1 py-2 rounded-notion border text-sm font-medium transition-colors ${
-                    pendingImport.subject === "physics"
-                      ? "bg-notion-accent-bg border-primary-300 text-notion-text"
-                      : "border-notion-border text-notion-muted hover:bg-notion-surface"
-                  }`}
-                >
-                  物理
-                </button>
-              </div>
+            <div className="space-y-3 mb-4">
+              {pendingImports.map((pending, idx) => (
+                <div key={idx} className="p-3 border border-notion-border rounded-notion">
+                  <p className="text-sm font-medium text-notion-text mb-2">{pending.fileName}</p>
+                  <p className="text-xs text-notion-muted mb-2">{pending.parsedQuestions.length} 道错题</p>
+                  <label className="block text-xs font-medium text-notion-text mb-1">学科</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        setPendingImports((prev) =>
+                          prev.map((f, i) => (i === idx ? { ...f, subject: "math" as Subject } : f))
+                        )
+                      }
+                      className={`flex-1 py-1.5 rounded-notion border text-xs font-medium transition-colors ${
+                        pending.subject === "math"
+                          ? "bg-notion-accent-bg border-primary-300 text-notion-text"
+                          : "border-notion-border text-notion-muted hover:bg-notion-surface"
+                      }`}
+                    >
+                      数学
+                    </button>
+                    <button
+                      onClick={() =>
+                        setPendingImports((prev) =>
+                          prev.map((f, i) => (i === idx ? { ...f, subject: "physics" as Subject } : f))
+                        )
+                      }
+                      className={`flex-1 py-1.5 rounded-notion border text-xs font-medium transition-colors ${
+                        pending.subject === "physics"
+                          ? "bg-notion-accent-bg border-primary-300 text-notion-text"
+                          : "border-notion-border text-notion-muted hover:bg-notion-surface"
+                      }`}
+                    >
+                      物理
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="flex gap-3">
               <button
@@ -573,7 +609,7 @@ export default function QuestionsPage() {
                 {importing ? "导入中..." : "确认导入"}
               </button>
               <button
-                onClick={() => setPendingImport(null)}
+                onClick={() => setPendingImports([])}
                 disabled={importing}
                 className="notion-btn-ghost flex-1 text-sm disabled:opacity-50"
               >
@@ -819,8 +855,8 @@ function QuestionCard({
             className="bg-white rounded-notion shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-notion-border">
+            {/* Header — sticky so the close button is always accessible */}
+            <div className="sticky top-0 z-10 bg-white flex items-center justify-between p-4 border-b border-notion-border">
               <div className="flex items-center gap-2 flex-wrap">
                 <span
                   className={`text-xs px-2 py-1 rounded-full ${
@@ -999,6 +1035,19 @@ function QuestionCard({
                       </button>
                     </div>
                   )}
+
+                  {/* AI Chat — discuss analysis errors */}
+                  <AIChatBox
+                    questionContent={question.content}
+                    solutionApproach={question.solution_approach}
+                    solutionSteps={question.solution_steps}
+                    onAdopt={async (approach, steps) => {
+                      await onSaveEdit(question.id, {
+                        solutionApproach: approach,
+                        solutionSteps: JSON.stringify(steps),
+                      });
+                    }}
+                  />
                 </>
               ) : (
                 <section className="p-4 space-y-2">
