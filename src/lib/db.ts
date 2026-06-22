@@ -33,10 +33,12 @@ class SqlJsAdapter {
     rowsAffected: number;
     lastInsertId: number;
   }> {
-    const info = this.db.run(sql, bindValues || []);
+    this.db.run(sql, bindValues || []); // sql.js db.run() returns the db instance, not a result
+    const changes = this.db.exec("SELECT changes()");
+    const lastId = this.db.exec("SELECT last_insert_rowid()");
     return {
-      rowsAffected: info.changes || 0,
-      lastInsertId: Number(info.lastID) || 0,
+      rowsAffected: changes[0]?.values[0]?.[0] ?? 0,
+      lastInsertId: lastId[0]?.values[0]?.[0] ?? 0,
     };
   }
 
