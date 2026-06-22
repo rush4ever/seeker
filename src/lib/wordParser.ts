@@ -1,7 +1,7 @@
 import mammoth from "mammoth";
 import JSZip from "jszip";
 import { parseImageContent } from "./vision";
-import { INLINE_IMAGE_MARKER, INLINE_FORMULA_IMG_RE } from "./textMarkers";
+import { INLINE_IMAGE_MARKER } from "./textMarkers";
 
 export interface ParsedQuestion {
   number: number;
@@ -48,11 +48,13 @@ function parseOptions(contentHtml: string): string[] | undefined {
 }
 
 /**
- * Extract answer from the next <p> element after the answer header.
- * Handles text, em tags, and images.
+ * Extract answer(s) from the <p> elements after the answer header.
+ * Handles multi-answer fill-in-the-blank questions where each
+ * blank's answer is in a separate <p> element.
+ * Returns answers separated by " | " (e.g. "小于 | a").
  */
 function extractAnswerFromHtml(html: string, questionNum: number): string {
-  // Find the answer header
+  // Find the answer header for this question number
   const headerPattern = new RegExp(
     `${questionNum}[【\\[]原错题参考答案[】\\]]`
   );
@@ -61,19 +63,32 @@ function extractAnswerFromHtml(html: string, questionNum: number): string {
 
   const afterHeader = html.substring(headerMatch.index! + headerMatch[0].length);
 
-  // Find the next <p> tag and extract its content
-  const pMatch = afterHeader.match(/<p>([\s\S]*?)<\/p>/);
-  if (!pMatch) return "";
+  // Find the NEXT answer header (if any) to know where to stop
+  const nextNum = questionNum + 1;
+  const nextHeaderPattern = new RegExp(
+    `${nextNum}[【\\[]原错题参考答案[】\\]]`
+  );
+  const nextMatch = afterHeader.match(nextHeaderPattern);
+  const endIndex = nextMatch ? afterHeader.indexOf(nextMatch[0]) : afterHeader.length;
+  const section = afterHeader.substring(0, endIndex);
 
-  // Extract text, handling nested tags
-  let answer = pMatch[1]
-    .replace(/<em>(.*?)<\/em>/g, "$1")
-    .replace(/<strong>(.*?)<\/strong>/g, "$1")
-    .replace(/<img[^>]*>/g, "[图片]")
-    .replace(/\s+/g, " ")
-    .trim();
+  // Collect all <p> contents within this section
+  const answers: string[] = [];
+  const pRegex = /<p>([\s\S]*?)<\/p>/g;
+  let pMatch;
+  while ((pMatch = pRegex.exec(section)) !== null) {
+    const content = pMatch[1]
+      .replace(/<em>(.*?)<\/em>/g, "$1")
+      .replace(/<strong>(.*?)<\/strong>/g, "$1")
+      .replace(/<img[^>]*>/g, "[图片]")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (content) {
+      answers.push(content);
+    }
+  }
 
-  return answer;
+  return answers.join(" | ");
 }
 
 async function parseImagesInHtml(
@@ -197,7 +212,7 @@ async function parseImagesInHtml(
       const visionDesc = parsed?.description || "";
       updatedHtml = updatedHtml.replace(
         m.fullTag,
-        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" alt="${INLINE_IMAGE_MARKER}" title="${visionDesc}" style="max-height:4em;max-width:100%;width:auto;height:auto;display:inline-block;vertical-align:middle;border-radius:2px;" />`
+        `<img src="${m.base64Src}" class="inline-formula" data-image="${name}" alt="${INLINE_IMAGE_MARKER}" title="${visionDesc}" style="max-height:1.5em;max-width:100%;width:auto;height:auto;display:inline-block;vertical-align:middle;border-radius:2px;" />`
       );
       const base64Content = m.base64Src.split(",")[1];
       const data = Uint8Array.from(atob(base64Content), (c) =>
@@ -212,12 +227,21 @@ async function parseImagesInHtml(
     }
   }
 
-  // Build the plain-text view: all non-decorative images become □
-  // to preserve position markers. The vision description is available
-  // in the <img title> attribute and in content_images.
+  // Build the plain-text view: inline-formula images with vision description
+  // become `□（$...$）` so the label is baked into content at source.
+  // Other images (decorative, un-described) become bare `□` as position markers.
   const text = cleanLatexDelimiters(
     updatedHtml
-      .replace(INLINE_FORMULA_IMG_RE, INLINE_IMAGE_MARKER)
+      // Inline formulas with title → □（$title$）
+      .replace(
+        /<img[^>]*class="inline-formula"[^>]*title="([^"]*)"[^>]*\/?>/gi,
+        (_match, title) => {
+          const trimmed = title.trim();
+          return trimmed ? `${INLINE_IMAGE_MARKER}（${trimmed}）` : INLINE_IMAGE_MARKER;
+        },
+      )
+      // Fallback: any remaining img → bare □
+      .replace(/<img[^>]*\/?>/gi, INLINE_IMAGE_MARKER)
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim(),
@@ -369,8 +393,11 @@ export async function parseWordDocument(
       contentHtml = contentHtml.substring(0, nextTable);
     }
 
-    // Clean up
+    // Clean up — replace non-breaking spaces (Word underscores/fill-in blanks)
+    // with visible ___ markers before \s+ collapses them
     contentHtml = contentHtml
+      .replace(/&nbsp;/g, "___")
+      .replace(/\xa0/g, "___")
       .replace(/<p>\s*<\/p>/g, "")
       .replace(/\s+/g, " ")
       .trim();
