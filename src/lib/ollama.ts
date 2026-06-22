@@ -10,6 +10,19 @@ function fixLatex(s: string): string {
   return s ? s.replace(/\f/g, "\\f") : s;
 }
 
+/**
+ * Replace □ with LaTeX \square ONLY inside $...$ or $$...$$ math delimiters.
+ * □ (U+25A1) has no KaTeX font metrics in math mode, causing
+ * visible "no character metrics" warnings.  \square renders cleanly.
+ */
+function fixSquare(s: string): string {
+  return s
+    // Handle $$...$$ display math first
+    .replace(/\$\$[\s\S]*?\$\$/g, (m: string) => m.replace(/□/g, "\\square"))
+    // Then $...$ inline math
+    .replace(/\$[^$]*\$/g, (m: string) => m.replace(/□/g, "\\square"));
+}
+
 export interface OllamaResponse {
   model: string;
   response: string;
@@ -78,9 +91,9 @@ export async function analyzeQuestion(
       knowledgePoints: (parsed.knowledgePoints || []).map(fixLatex),
       errorCause: parsed.errorCause || "unknown",
       difficulty: parsed.difficulty || "medium",
-      solutionApproach: fixLatex(parsed.solutionApproach || ""),
+      solutionApproach: fixSquare(fixLatex(parsed.solutionApproach || "")),
       solutionSteps: Array.isArray(parsed.solutionSteps)
-        ? parsed.solutionSteps.map(fixLatex)
+        ? parsed.solutionSteps.map((s: string) => fixSquare(fixLatex(s)))
         : [],
     };
   } catch {
@@ -105,7 +118,9 @@ function buildAnalysisPrompt(
 
 重要提示：
 - 错题内容中的 □（白色方框）表示题目中被撕掉/遮盖的部分，是需要学生求解的未知内容
-- □（$...$）中的 $...$ 是 AI 对公式图片的自动识别结果，□ 在 $...$ 内部表示它属于这个数学表达式的一部分
+- □（$...$）格式表示：该 □ 对应的数学表达式经过 AI 识别为 $...$ 中的内容，□ 是 $...$ 内部表达式的组成部分，表示需要求解的未知数
+  - 例如：□（$(□-1)\times\frac{1}{5-a}$）表示未知数 □ 在表达式中的位置在括号内：$(□-1)\times\frac{1}{5-a}$
+- 最终的解题结果中，□ 的值即为这道题的答案
 
 预置知识树：
 ${nodeList}
@@ -133,9 +148,9 @@ function extractFromRawText(text: string): AnalysisResult {
         knowledgePoints: (parsed.knowledgePoints || []).map(fixLatex),
         errorCause: parsed.errorCause || "unknown",
         difficulty: parsed.difficulty || "medium",
-        solutionApproach: fixLatex(parsed.solutionApproach || ""),
+        solutionApproach: fixSquare(fixLatex(parsed.solutionApproach || "")),
         solutionSteps: Array.isArray(parsed.solutionSteps)
-          ? parsed.solutionSteps.map(fixLatex)
+          ? parsed.solutionSteps.map((s: string) => fixSquare(fixLatex(s)))
           : [],
       };
     } catch {
@@ -152,3 +167,63 @@ function extractFromRawText(text: string): AnalysisResult {
     solutionSteps: [],
   };
 }
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/**
+ * Have a chat conversation about a question's analysis.
+ * Uses Ollama /api/chat with conversation history.
+ */
+export async function chatWithAnalysis(
+  questionContent: string,
+  currentAnalysis: { approach: string | null; steps: string | null },
+  messages: ChatMessage[],
+  model?: string
+): Promise<string> {
+  const m = model || (await resolveModel("reasoning"))?.model || "qwen2.5:7b";
+
+  const systemPrompt = `你是一位资深的中学数学/物理教师，正在协助分析一道错题。
+
+错题内容：
+${questionContent}
+
+当前的分析结果：
+- 解题思路：${currentAnalysis.approach || "暂无"}
+- 解题步骤：${currentAnalysis.steps || "暂无"}
+
+请根据用户的问题回答。如果用户指出分析中的错误，请承认并给出正确的分析。
+如果涉及公式，请务必用 $...$ 包裹 LaTeX（例如：$\\frac{1}{4-a}$）。`;
+
+  const chatMessages = [
+    { role: "system", content: systemPrompt },
+    ...messages,
+  ];
+
+  const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: m,
+      messages: chatMessages,
+      stream: false,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Ollama chat API error: ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  const raw = (data.message?.content || "").trim();
+
+  // Apply the same fixLatex as analyzeQuestion — JSON parsing of the
+  // LLM response turns \f in \frac into form-feed (0x0C), which
+  // breaks KaTeX rendering.
+  // Also fix □ → \square inside $...$ blocks.
+  return fixSquare(fixLatex(raw));
+}
+
+
