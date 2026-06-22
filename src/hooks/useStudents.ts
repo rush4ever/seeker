@@ -27,13 +27,23 @@ export function useStudents() {
     refresh();
   }, [refresh]);
 
-  const add = useCallback(async (req: CreateStudentRequest) => {
+  const add = useCallback(async (req: CreateStudentRequest): Promise<Student> => {
     const db = await getDb();
-    await db.execute(
+    const result = await db.execute(
       "INSERT INTO students (name, current_grade, current_semester, textbook_version) VALUES ($1, $2, $3, $4)",
       [req.name, req.current_grade, req.current_semester, req.textbook_version]
     );
+    const newStudent: Student = {
+      id: result.lastInsertId ?? 0,
+      name: req.name,
+      current_grade: req.current_grade,
+      current_semester: req.current_semester,
+      textbook_version: req.textbook_version,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
     await refresh();
+    return newStudent;
   }, [refresh]);
 
   const update = useCallback(async (req: UpdateStudentRequest) => {

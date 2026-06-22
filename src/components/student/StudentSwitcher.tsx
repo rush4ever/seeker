@@ -7,7 +7,7 @@ import { UserPlus } from "lucide-react";
 import type { Student } from "../../types";
 
 export default function StudentSwitcher() {
-  const { currentStudent, setCurrentStudent } = useApp();
+  const { currentStudent, setCurrentStudent, setActivePage } = useApp();
   const { students, add, update, remove } = useStudents();
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -33,13 +33,15 @@ export default function StudentSwitcher() {
         {showForm ? (
           <StudentForm
             initialData={editingStudent ?? undefined}
-            onSubmit={(req) => {
+            onSubmit={async (req) => {
               if ("id" in req) {
-                update(req);
+                await update(req);
+                handleCancel();
               } else {
-                add(req);
+                const newStudent = await add(req);
+                handleCancel();
+                setCurrentStudent(newStudent);
               }
-              handleCancel();
             }}
             onCancel={handleCancel}
           />
@@ -48,7 +50,10 @@ export default function StudentSwitcher() {
             <StudentList
               students={students}
               currentStudentId={currentStudent?.id ?? null}
-              onSelect={setCurrentStudent}
+              onSelect={(student) => {
+                setCurrentStudent(student);
+                setActivePage("home");
+              }}
               onDelete={remove}
               onEdit={handleEdit}
             />

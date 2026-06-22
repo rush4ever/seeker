@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { CreateStudentRequest, UpdateStudentRequest, Student } from "../../types";
 
 interface Props {
@@ -11,6 +11,11 @@ export default function StudentForm({ initialData, onSubmit, onCancel }: Props) 
   const [name, setName] = useState(initialData?.name ?? "");
   const [grade, setGrade] = useState(initialData?.current_grade ?? 8);
   const [semester, setSemester] = useState(initialData?.current_semester ?? 2);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    nameInputRef.current?.focus();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +42,7 @@ export default function StudentForm({ initialData, onSubmit, onCancel }: Props) 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">姓名</label>
         <input
+          ref={nameInputRef}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
