@@ -23,6 +23,7 @@ pub fn run() {
             commands::backup::restore_snapshot,
             commands::backup::cleanup_old_snapshots,
             commands::backup::backup_to_sync_folder,
+            commands::parse_document::parse_document,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
