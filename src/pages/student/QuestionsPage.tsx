@@ -7,6 +7,7 @@ import {
   difficultyLabel,
 } from "../../hooks/useQuestionAnalysis";
 import { parseWordDocument, type ParseProgress } from "../../lib/wordParser";
+import { parseMineruMarkdown } from "../../lib/mineruParser";
 import { getDb } from "../../lib/db";
 import { useSimilarQuestions } from "../../hooks/useSimilarQuestions";
 import { updateMastery, checkGraduationStatus, masteryBarClass } from "../../lib/mastery";
@@ -115,13 +116,67 @@ export default function QuestionsPage() {
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           setImportProgress({ phase: "structure", current: i + 1, total: files.length, message: `解析 ${file.name}` });
-          const result = await parseWordDocument(file);
-          const guessedSubject: Subject = file.name.includes("物理") ? "physics" : "math";
-          results.push({
-            fileName: file.name,
-            parsedQuestions: result.questions,
-            subject: guessedSubject,
-          });
+
+          // In Tauri runtime: use parse_document command (supports PDF + DOCX)
+          if (typeof window !== "undefined" && (window as any).__TAURI__) {
+            try {
+              // Use Tauri's dialog to get file path instead of browser File
+              const { invoke } = await import("@tauri-apps/api/core");
+              const { open } = await import("@tauri-apps/plugin-dialog");
+
+              // For Tauri mode, we open a dialog for each file since browser File
+              // objects don't carry native paths. We only use this path for the
+              // first interaction; subsequent files use the File API in browser mode.
+              const selected = await open({
+                multiple: false,
+                filters: [{
+                  name: "Documents",
+                  extensions: ["pdf", "docx"],
+                }],
+              });
+
+              if (!selected) {
+                setImporting(false);
+                return;
+              }
+
+              const result = await invoke<{ markdown: string; title: string; question_count: number }>(
+                "parse_document",
+                { filePath: selected }
+              );
+
+              const parsed = parseMineruMarkdown(result.markdown);
+              const guessedSubject: Subject = selected.toLowerCase().includes("物理") ? "physics" : "math";
+              results.push({
+                fileName: selected.split("/").pop() || selected.split("\\").pop() || file.name,
+                parsedQuestions: parsed.questions,
+                subject: guessedSubject,
+              });
+            } catch (tauriErr) {
+              // Fallback to browser-based parsing if Tauri dialog fails
+              console.warn("Tauri parse failed, falling back to browser:", tauriErr);
+              const result = await parseWordDocument(file);
+              const guessedSubject: Subject = file.name.includes("物理") ? "physics" : "math";
+              results.push({
+                fileName: file.name,
+                parsedQuestions: result.questions,
+                subject: guessedSubject,
+              });
+            }
+          } else {
+            // Browser mode: only DOCX supported via mammoth
+            if (!file.name.endsWith(".docx")) {
+              toast.error(`浏览器模式下暂不支持 PDF 导入: ${file.name}`);
+              continue;
+            }
+            const result = await parseWordDocument(file);
+            const guessedSubject: Subject = file.name.includes("物理") ? "physics" : "math";
+            results.push({
+              fileName: file.name,
+              parsedQuestions: result.questions,
+              subject: guessedSubject,
+            });
+          }
         }
         setPendingImports(results);
       } catch (err) {
@@ -483,14 +538,14 @@ export default function QuestionsPage() {
             ) : (
               <>
                 <FileUp size={14} />
-                导入 Word
+                导入文件
               </>
             )}
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".docx"
+            accept=".docx,.pdf"
             multiple
             onChange={handleFileSelect}
             className="hidden"
@@ -531,7 +586,7 @@ export default function QuestionsPage() {
         <div className="notion-card text-center py-12 text-notion-subtle">
           <BookOpen size={48} className="mx-auto mb-4" />
           <p>暂无错题</p>
-          <p className="text-sm mt-2">点击"导入 Word"按钮导入错题文档</p>
+          <p className="text-sm mt-2">点击"导入文件"按钮导入错题文档（支持 PDF / Word）</p>
         </div>
       ) : (
         <div className="space-y-3">
